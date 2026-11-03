@@ -1,0 +1,11 @@
+# Git should NEVER track these sensitive or auto-generated files
+.env
+venv/
+__pycache__/
+*.pyc
+*.pkl
+*.log
+data/*.csv
+data/*.parquet
+data/*.png
+.DS_Store

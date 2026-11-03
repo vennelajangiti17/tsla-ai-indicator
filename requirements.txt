@@ -1,0 +1,31 @@
+# ============================================================
+# TSLA AI Indicator - All Dependencies
+# ============================================================
+
+# --- Data & API ---
+alpaca-py           # Alpaca Markets SDK (historical + live data)
+yfinance            # Backup: Yahoo Finance for extra historical data
+pandas              # Data manipulation (DataFrames, CSV)
+numpy               # Numerical computing
+
+# --- Technical Indicators (computed from OHLCV) ---
+ta                  # 40+ indicators: RSI, MACD, Bollinger Bands, ATR, etc.
+
+# --- Machine Learning ---
+scikit-learn        # Preprocessing, metrics, walk-forward splits
+xgboost             # Primary ML model (best for tabular financial data)
+lightgbm            # Alternative gradient boosting model
+joblib              # Save/load trained models (.pkl files)
+
+# --- Web App Backend ---
+fastapi             # Lightweight Python API server
+uvicorn             # ASGI server to run FastAPI
+websockets          # WebSocket support for live streaming
+
+# --- Visualization & Logging ---
+matplotlib          # Plotting charts during development/debugging
+rich                # Beautiful, colored terminal logs
+
+# --- Utilities ---
+python-dotenv       # Load API keys from .env file safely
+requests            # Simple HTTP requests
