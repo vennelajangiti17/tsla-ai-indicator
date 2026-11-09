@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TSLA AI Indicator</title>
+
+<!-- TradingView Lightweight Charts (free, official library) -->
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+
+<style>
+  /* ── Reset & Base ─────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d1117;
+    --bg2:       #161b22;
+    --bg3:       #21262d;
+    --border:    #30363d;
+    --text:      #e6edf3;
+    --text-dim:  #8b949e;
+    --green:     #3fb950;
+    --red:       #f85149;
+    --yellow:    #d29922;
+    --blue:      #58a6ff;
+    --purple:    #bc8cff;
+    --radius:    8px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ───────────────────────────────── */
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .ticker-badge {
+    background: var(--blue);
+    color: #000;
+    font-weight: 700;
+    font-size: 18px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+  }
+
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .header-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .live-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  .live-dot::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  #server-time {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: monospace;
+  }
+
+  /* ── Main Layout ──────────────────────────── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto auto 1fr;
+    gap: 12px;
+    padding: 12px;
+    height: calc(100vh - 57px);
+  }
+
+  /* ── Signal Panel ─────────────────────────── */
+  .signal-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+  }
+
+  .signal-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 110px;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    border: 2px solid;
+    text-align: center;
+  }
+
+  .signal-box.UP    { border-color: var(--green); background: rgba(63,185,80,0.1); }
+  .signal-box.DOWN  { border-color: var(--red);   background: rgba(248,81,73,0.1); }
+  .signal-box.NEUTRAL { border-color: var(--yellow); background: rgba(210,153,34,0.1); }
+
+  .signal-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+
+  .signal-value {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+
+  .signal-box.UP    .signal-value { color: var(--green); }
+  .signal-box.DOWN  .signal-value { color: var(--red);   }
+  .signal-box.NEUTRAL .signal-value { color: var(--yellow); }
+
+  .signal-conf {
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 2px;
+    color: var(--text-dim);
+  }
+
+  /* ── Stats Row ────────────────────────────── */
+  .stats-row {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .stat-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 90px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+  }
+
+  .stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: monospace;
+  }
+
+  .stat-value.green  { color: var(--green); }
+  .stat-value.red    { color: var(--red);   }
+  .stat-value.blue   { color: var(--blue);  }
+
+  /* ── Scenarios Panel ──────────────────────── */
+  .scenarios-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    grid-column: 2 / 3;
+    grid-row: 1 / 3;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+  }
+
+  .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .scenario-card {
+    background: var(--bg3);
+    border-radius: 6px;
+    padding: 10px 12px;
+    border-left: 3px solid;
+  }
+
+  .scenario-card.base { border-color: var(--blue); }
+  .scenario-card.bull { border-color: var(--green); }
+  .scenario-card.bear { border-color: var(--red); }
+
+  .scenario-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+
+  .scenario-name {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .scenario-card.base .scenario-name { color: var(--blue);  }
+  .scenario-card.bull .scenario-name { color: var(--green); }
+  .scenario-card.bear .scenario-name { color: var(--red);   }
+
+  .scenario-price {
+    font-size: 15px;
+    font-weight: 800;
+    font-family: monospace;
+  }
+
+  .scenario-move {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+  }
+
+  .scenario-expl {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+
+  /* ── Indicators Bar ───────────────────────── */
+  .indicators-bar {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+  }
+
+  .ind-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 70px;
+  }
+
+  .ind-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .ind-value {
+    font-size: 15px;
+    font-weight: 700;
+    font-family: monospace;
+  }
+
+  .ind-bar-wrap {
+    width: 60px;
+    height: 4px;
+    background: var(--bg3);
+    border-radius: 2px;
+    margin-top: 2px;
+  }
+
+  .ind-bar-fill {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--blue);
+    transition: width 0.5s;
+  }
+
+  /* ── Chart ────────────────────────────────── */
+  .chart-container {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chart-header {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  #tv-chart {
+    flex: 1;
+    min-height: 200px;
+  }
+
+  /* ── Log Table ────────────────────────────── */
+  .log-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    grid-column: 2 / 3;
+    grid-row: 3 / 4;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .log-panel .panel-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .log-count {
+    background: var(--bg3);
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .log-table-wrap {
+    overflow-y: auto;
+    flex: 1;
+    margin-top: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  thead th {
+    background: var(--bg3);
+    color: var(--text-dim);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+    padding: 5px 7px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 5px 7px;
+    border-bottom: 1px solid var(--border);
+    font-family: monospace;
+    white-space: nowrap;
+  }
+
+  tbody tr:hover { background: var(--bg3); }
+
+  .sig-up      { color: var(--green); font-weight: 700; }
+  .sig-down    { color: var(--red);   font-weight: 700; }
+  .sig-neutral { color: var(--yellow); font-weight: 700; }
+
+  /* ── Toast Notification ───────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 12px;
+    max-width: 280px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    z-index: 999;
+  }
+
+  #toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Connection Banner ────────────────────── */
+  #conn-banner {
+    display: none;
+    text-align: center;
+    padding: 6px;
+    font-size: 12px;
+    background: rgba(248,81,73,0.15);
+    color: var(--red);
+    border-bottom: 1px solid var(--red);
+  }
+</style>
+</head>
+
+<body>
+
+<div id="conn-banner">⚠ WebSocket disconnected — attempting to reconnect...</div>
+
+<!-- ── HEADER ──────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <span class="ticker-badge">TSLA</span>
+    <div>
+      <div class="header-title">AI Indicator — Live ML Predictions</div>
+      <div class="header-sub">XGBoost · 35 Features · 5-min Candles · Alpaca IEX Feed</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="live-dot">LIVE</span>
+    <span id="server-time">--:--:-- IST</span>
+  </div>
+</header>
+
+<!-- ── MAIN GRID ───────────────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- ① SIGNAL PANEL (top-left) -->
+  <div class="signal-panel">
+    <div class="signal-box NEUTRAL" id="signal-box">
+      <div class="signal-label">Signal</div>
+      <div class="signal-value" id="signal-text">—</div>
+      <div class="signal-conf" id="signal-conf">Waiting...</div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Price</div>
+        <div class="stat-value blue" id="stat-price">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Confidence</div>
+        <div class="stat-value" id="stat-conf">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Prob UP</div>
+        <div class="stat-value" id="stat-prob">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Candle Time</div>
+        <div class="stat-value" id="stat-time" style="font-size:12px">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Signals</div>
+        <div class="stat-value" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Live Accuracy</div>
+        <div class="stat-value green" id="stat-acc">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② SCENARIOS PANEL (right, rows 1-2) -->
+  <div class="scenarios-panel">
+    <div class="panel-title">📊 Multi-Scenario Forecast (10 min)</div>
+
+    <div class="scenario-card base">
+      <div class="scenario-header">
+        <span class="scenario-name">📊 Base (Most Likely)</span>
+        <span class="scenario-price" id="sc-base-price">—</span>
+      </div>
+      <div class="scenario-move" id="sc-base-move">—</div>
+      <div class="scenario-expl" id="sc-base-expl">Waiting for first prediction...</div>
+    </div>
+
+    <div class="scenario-card bull">
+      <div class="scenario-header">
+        <span class="scenario-name">🐂 Bull (Optimistic)</span>
+        <span class="scenario-price" id="sc-bull-price">—</span>
+      </div>
+      <div class="scenario-move" id="sc-bull-move">—</div>
+      <div class="scenario-expl" id="sc-bull-expl">—</div>
+    </div>
+
+    <div class="scenario-card bear">
+      <div class="scenario-header">
+        <span class="scenario-name">🐻 Bear (Risk / Invalidation)</span>
+        <span class="scenario-price" id="sc-bear-price">—</span>
+      </div>
+      <div class="scenario-move" id="sc-bear-move">—</div>
+      <div class="scenario-expl" id="sc-bear-expl">—</div>
+    </div>
+
+    <div class="stat-card" style="margin-top:4px">
+      <div class="stat-label">Volume Note</div>
+      <div style="font-size:12px; color:var(--text); margin-top:3px" id="vol-note">—</div>
+    </div>
+  </div>
+
+  <!-- ③ INDICATORS BAR (row 2, left) -->
+  <div class="indicators-bar">
+    <div class="ind-item">
+      <div class="ind-label">RSI (14)</div>
+      <div class="ind-value" id="ind-rsi">—</div>
+      <div class="ind-bar-wrap">
+        <div class="ind-bar-fill" id="ind-rsi-bar" style="width:50%"></div>
+      </div>
+    </div>
+    <div class="ind-item">
+      <div class="ind-label">ATR (14)</div>
+      <div class="ind-value" id="ind-atr">—</div>
+    </div>
+    <div class="ind-item">
+      <div class="ind-label">Vol Ratio</div>
+      <div class="ind-value" id="ind-vol">—</div>
+    </div>
+    <div class="ind-item">
+      <div class="ind-label">MACD Hist</div>
+      <div class="ind-value" id="ind-macd">—</div>
+    </div>
+    <div class="ind-item">
+      <div class="ind-label">BB %</div>
+      <div class="ind-value" id="ind-bb">—</div>
+      <div class="ind-bar-wrap">
+        <div class="ind-bar-fill" id="ind-bb-bar" style="width:50%"></div>
+      </div>
+    </div>
+    <div class="ind-item">
+      <div class="ind-label">EMA Cross</div>
+      <div class="ind-value" id="ind-ema">—</div>
+    </div>
+    <div class="ind-item">
+      <div class="ind-label">Last Update</div>
+      <div class="ind-value" id="ind-update" style="font-size:11px">—</div>
+    </div>
+  </div>
+
+  <!-- ④ PRICE CHART (row 3, left) -->
+  <div class="chart-container">
+    <div class="chart-header">TSLA — 5-Minute Candles</div>
+    <div id="tv-chart"></div>
+  </div>
+
+  <!-- ⑤ LOG TABLE (row 3, right) -->
+  <div class="log-panel">
+    <div class="panel-title">
+      📋 Prediction Log
+      <span class="log-count" id="log-count">0 entries</span>
+    </div>
+    <div class="log-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Time</th>
+            <th>Signal</th>
+            <th>Conf</th>
+            <th>Price</th>
+            <th>Base →</th>
+            <th>Actual</th>
+            <th>✓?</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody">
+          <tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:20px">
+            Waiting for first prediction...<br>
+            <span style="font-size:10px">(Market must be open: 8:00 PM – 1:30 AM IST)</span>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /main-grid -->
+
+<!-- ── TOAST ───────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── JAVASCRIPT ──────────────────────────────────────── -->
+<script>
+// ── Clock ────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  const ist = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  const h = String(ist.getUTCHours()).padStart(2, '0');
+  const m = String(ist.getUTCMinutes()).padStart(2, '0');
+  const s = String(ist.getUTCSeconds()).padStart(2, '0');
+  document.getElementById('server-time').textContent = `${h}:${m}:${s} IST`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── TradingView Lightweight Chart ────────────────────────
+const chartEl = document.getElementById('tv-chart');
+const chart = LightweightCharts.createChart(chartEl, {
+  width:  chartEl.clientWidth  || 700,
+  height: chartEl.clientHeight || 220,
+  layout: { background: { color: '#161b22' }, textColor: '#8b949e' },
+  grid:   { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+  crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+  timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#30363d' },
+});
+
+const candleSeries = chart.addCandlestickSeries({
+  upColor: '#3fb950', downColor: '#f85149',
+  borderUpColor: '#3fb950', borderDownColor: '#f85149',
+  wickUpColor: '#3fb950', wickDownColor: '#f85149',
+});
+
+const volumeSeries = chart.addHistogramSeries({
+  color: '#58a6ff', priceFormat: { type: 'volume' },
+  priceScaleId: 'volume', scaleMargins: { top: 0.85, bottom: 0 },
+});
+
+// Store signal markers
+let signalMarkers = [];
+
+function addSignalMarker(time, signal, price) {
+  const color = signal === 'UP' ? '#3fb950' : signal === 'DOWN' ? '#f85149' : '#d29922';
+  const shape = signal === 'UP' ? 'arrowUp' : signal === 'DOWN' ? 'arrowDown' : 'circle';
+  const text  = signal === 'UP' ? '▲ BUY' : signal === 'DOWN' ? '▼ SELL' : '● HOLD';
+  signalMarkers.push({ time, position: signal === 'DOWN' ? 'aboveBar' : 'belowBar',
+                       color, shape, text });
+  candleSeries.setMarkers(signalMarkers.slice(-30)); // keep last 30
+}
+
+function loadCandles() {
+  fetch('/api/candles')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.candles || data.candles.length === 0) return;
+      const candles = data.candles.map(c => ({
+        time  : Math.floor(new Date(c.time).getTime() / 1000),
+        open  : c.open, high: c.high, low: c.low, close: c.close,
+      }));
+      const volumes = data.candles.map(c => ({
+        time  : Math.floor(new Date(c.time).getTime() / 1000),
+        value : c.volume,
+        color : c.close >= c.open ? '#3fb95040' : '#f8514940',
+      }));
+      candleSeries.setData(candles);
+      volumeSeries.setData(volumes);
+    });
+}
+loadCandles();
+
+// Resize chart on window resize
+new ResizeObserver(() => {
+  chart.applyOptions({
+    width:  chartEl.clientWidth,
+    height: chartEl.clientHeight,
+  });
+}).observe(chartEl);
+
+
+// ── Update UI from Prediction ─────────────────────────────
+function applyPrediction(pred) {
+  // Signal box
+  const box = document.getElementById('signal-box');
+  box.className = `signal-box ${pred.signal}`;
+  document.getElementById('signal-text').textContent =
+    pred.signal === 'UP' ? '▲ BUY' : pred.signal === 'DOWN' ? '▼ SELL' : '● HOLD';
+  document.getElementById('signal-conf').textContent = `${pred.confidence}% confident`;
+
+  // Stats
+  document.getElementById('stat-price').textContent = `$${pred.price}`;
+  document.getElementById('stat-conf').textContent  = `${pred.confidence}%`;
+  document.getElementById('stat-prob').textContent  = `${pred.prob_up}%`;
+  document.getElementById('stat-time').textContent  = pred.timestamp.slice(11, 19);
+
+  // Indicators
+  document.getElementById('ind-rsi').textContent  = pred.rsi;
+  document.getElementById('ind-rsi').style.color  =
+    pred.rsi < 30 ? '#3fb950' : pred.rsi > 70 ? '#f85149' : '#e6edf3';
+  document.getElementById('ind-rsi-bar').style.width = `${pred.rsi}%`;
+
+  document.getElementById('ind-atr').textContent  = `$${pred.atr}`;
+  document.getElementById('ind-vol').textContent  = `${pred.vol_ratio}x`;
+  document.getElementById('ind-vol').style.color  =
+    pred.vol_ratio > 2 ? '#d29922' : pred.vol_ratio < 0.5 ? '#8b949e' : '#e6edf3';
+
+  document.getElementById('ind-macd').textContent = pred.macd_hist;
+  document.getElementById('ind-macd').style.color = pred.macd_hist >= 0 ? '#3fb950' : '#f85149';
+
+  document.getElementById('ind-bb').textContent   = `${pred.bb_pct}%`;
+  document.getElementById('ind-bb-bar').style.width = `${Math.min(pred.bb_pct, 100)}%`;
+  document.getElementById('ind-bb-bar').style.background =
+    pred.bb_pct > 90 ? '#f85149' : pred.bb_pct < 10 ? '#3fb950' : '#58a6ff';
+
+  document.getElementById('ind-ema').textContent  = pred.ema_cross.toFixed(3);
+  document.getElementById('ind-ema').style.color  = pred.ema_cross > 0 ? '#3fb950' : '#f85149';
+  document.getElementById('ind-update').textContent = pred.logged_at;
+
+  // Scenarios
+  const dir = pred.signal === 'DOWN' ? -1 : 1;
+  document.getElementById('sc-base-price').textContent = `$${pred.base_target}`;
+  document.getElementById('sc-base-move').textContent  =
+    `${dir > 0 ? '+' : ''}$${(pred.base_target - pred.price).toFixed(2)} from $${pred.price}`;
+  document.getElementById('sc-base-expl').textContent  = pred.base_expl;
+
+  document.getElementById('sc-bull-price').textContent = `$${pred.bull_target}`;
+  document.getElementById('sc-bull-move').textContent  =
+    `+$${(pred.bull_target - pred.price).toFixed(2)} from $${pred.price}`;
+  document.getElementById('sc-bull-expl').textContent  = pred.bull_expl;
+
+  document.getElementById('sc-bear-price').textContent = `$${pred.bear_target}`;
+  document.getElementById('sc-bear-move').textContent  =
+    `-$${(pred.price - pred.bear_target).toFixed(2)} from $${pred.price}`;
+  document.getElementById('sc-bear-expl').textContent  = pred.bear_expl;
+
+  document.getElementById('vol-note').textContent = pred.vol_note;
+
+  // Add marker to chart
+  const t = Math.floor(new Date(pred.timestamp).getTime() / 1000);
+  addSignalMarker(t, pred.signal, pred.price);
+
+  // Toast notification
+  showToast(`New ${pred.signal} signal — $${pred.price} @ ${pred.confidence}% confidence`);
+}
+
+
+// ── Update Log Table ──────────────────────────────────────
+function updateLog(entries) {
+  const tbody = document.getElementById('log-tbody');
+  document.getElementById('log-count').textContent = `${entries.length} entries`;
+
+  if (entries.length === 0) return;
+
+  tbody.innerHTML = entries.map(e => {
+    const cls = e.signal === 'UP' ? 'sig-up' : e.signal === 'DOWN' ? 'sig-down' : 'sig-neutral';
+    const icon = e.signal === 'UP' ? '▲' : e.signal === 'DOWN' ? '▼' : '●';
+    return `<tr>
+      <td style="color:var(--text-dim)">${e.id}</td>
+      <td style="color:var(--text-dim)">${e.time}</td>
+      <td class="${cls}">${icon} ${e.signal}</td>
+      <td>${e.confidence}</td>
+      <td style="color:var(--blue)">${e.price}</td>
+      <td>${e.base_target}</td>
+      <td>${e.actual}</td>
+      <td>${e.correct}</td>
+    </tr>`;
+  }).join('');
+}
+
+
+// ── Fetch server stats periodically ─────────────────────
+function fetchStats() {
+  fetch('/api/status')
+    .then(r => r.json())
+    .then(s => {
+      document.getElementById('stat-total').textContent = s.total_predictions;
+      document.getElementById('stat-acc').textContent   = s.live_accuracy;
+    }).catch(() => {});
+}
+setInterval(fetchStats, 10000);
+fetchStats();
+
+
+// ── Toast ─────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+
+// ── WebSocket ─────────────────────────────────────────────
+let ws, wsRetries = 0;
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen = () => {
+    document.getElementById('conn-banner').style.display = 'none';
+    wsRetries = 0;
+    console.log('WebSocket connected ✓');
+  };
+
+  ws.onmessage = (evt) => {
+    const msg = JSON.parse(evt.data);
+    if (msg.type === 'prediction')  applyPrediction(msg.data);
+    if (msg.type === 'log_update')  updateLog(msg.data);
+    if (msg.type === 'error')       showToast(`⚠ Server error: ${msg.message}`);
+  };
+
+  ws.onclose = () => {
+    document.getElementById('conn-banner').style.display = 'block';
+    wsRetries++;
+    const delay = Math.min(2000 * wsRetries, 15000);
+    console.log(`WS closed, retrying in ${delay}ms...`);
+    setTimeout(connectWS, delay);
+  };
+
+  ws.onerror = (e) => console.error('WS error:', e);
+}
+
+connectWS();
+
+// Also poll /api/log every 30s as a fallback
+setInterval(() => {
+  fetch('/api/log').then(r => r.json()).then(d => updateLog(d.predictions));
+}, 30000);
+
+</script>
+</body>
+</html>
