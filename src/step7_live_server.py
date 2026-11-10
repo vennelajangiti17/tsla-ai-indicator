@@ -49,7 +49,7 @@ API_KEY    = os.getenv("ALPACA_API_KEY")
 SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
 TICKER     = os.getenv("TICKER", "TSLA")
 
-ENGINE_PATH = "models/prediction_engine.pkl"
+MODEL_PATH = "models/tsla_xgb_model.pkl"
 
 # ── Logging setup ─────────────────────────────────────────
 logging.basicConfig(
@@ -80,14 +80,14 @@ STATE = AppState()
 
 
 # ═══════════════════════════════════════════════════════════
-# LOAD PREDICTION ENGINE
+# LOAD MODEL (from tsla_xgb_model.pkl — no function objects stored)
 # ═══════════════════════════════════════════════════════════
 def load_engine():
-    if not Path(ENGINE_PATH).exists():
-        log.error(f"Engine not found at {ENGINE_PATH}. Run step6 first.")
+    if not Path(MODEL_PATH).exists():
+        log.error(f"Model not found at {MODEL_PATH}. Run step5 first.")
         sys.exit(1)
-    pkg = joblib.load(ENGINE_PATH)
-    log.info(f"Prediction engine loaded ✓  ({len(pkg['feature_cols'])} features)")
+    pkg = joblib.load(MODEL_PATH)
+    log.info(f"Model loaded ✓  ({len(pkg['feature_cols'])} features)")
     return pkg
 
 
@@ -412,19 +412,25 @@ def get_log_summary() -> list:
 
 
 # ═══════════════════════════════════════════════════════════
-# FASTAPI APP
+# FASTAPI APP  (using modern lifespan handler — no deprecation warning)
 # ═══════════════════════════════════════════════════════════
-app = FastAPI(title="TSLA AI Indicator", version="1.0")
+from contextlib import asynccontextmanager
 
-
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── Startup ──────────────────────────────────────────
     log.info("=" * 55)
     log.info("  TSLA AI INDICATOR SERVER STARTING")
     log.info("=" * 55)
     STATE.engine = load_engine()
-    asyncio.create_task(polling_loop())
+    task = asyncio.create_task(polling_loop())
     log.info("Server ready → http://localhost:8000")
+    yield
+    # ── Shutdown ─────────────────────────────────────────
+    task.cancel()
+    log.info("Server shut down cleanly.")
+
+app = FastAPI(title="TSLA AI Indicator", version="1.0", lifespan=lifespan)
 
 
 # ── REST Endpoints ───────────────────────────────────────
@@ -524,7 +530,7 @@ async def dashboard():
 if __name__ == "__main__":
     log.info("Starting TSLA AI Indicator server...")
     uvicorn.run(
-        "step7_live_server:app",
+        app,                   # pass the app object directly (not a string)
         host="0.0.0.0",
         port=8000,
         reload=False,
