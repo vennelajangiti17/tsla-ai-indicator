@@ -616,6 +616,8 @@
             <th>Conf</th>
             <th>Price</th>
             <th>Base →</th>
+            <th>Bull →</th>
+            <th>Bear →</th>
             <th>Actual</th>
             <th>✓?</th>
           </tr>
@@ -795,6 +797,8 @@ function updateLog(entries) {
       <td>${e.confidence}</td>
       <td style="color:var(--blue)">${e.price}</td>
       <td>${e.base_target}</td>
+      <td>${e.bull_target}</td>
+      <td>${e.bear_target}</td>
       <td>${e.actual}</td>
       <td>${e.correct}</td>
     </tr>`;

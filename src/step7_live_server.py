@@ -253,7 +253,7 @@ def make_prediction(engine: dict, df_with_features: pd.DataFrame) -> Optional[di
         base_target = round(current_price + base_move, 2)
         bull_target = round(current_price + bull_move, 2)
         bear_target = round(current_price - bear_move, 2)
-        base_expl = f"Model predicts TSLA rises ~${base_move:.2f} in next 10 min. RSI={rsi:.0f} (oversold → recovery). MACD hist={macd_hist:.3f}."
+        base_expl = f"Model predicts TSLA rises +${base_move:.2f} in next 10 min. RSI={rsi:.0f} (oversold → recovery). MACD hist={macd_hist:.3f}."
         bull_expl = f"If volume stays elevated, price could reach ${bull_target:.2f} (+${bull_move:.2f}). Watch for RSI crossing above 50."
         bear_expl = f"If prediction fails (e.g. sudden market sell-off), invalidation level is ${bear_target:.2f}. Stop-loss zone."
     elif direction == "DOWN":
@@ -338,24 +338,37 @@ async def polling_loop():
             pred = make_prediction(STATE.engine, df_feat)
 
             if pred:
-                # Update the previous prediction's "actual_price" if enough time has passed
-                if STATE.prediction_log:
-                    prev = STATE.prediction_log[-1]
-                    if prev['actual_price'] is None:
-                        prev['actual_price'] = pred['price']
-                        if prev['signal'] == "UP":
-                            prev['correct'] = pred['price'] > prev['price']
-                        elif prev['signal'] == "DOWN":
-                            prev['correct'] = pred['price'] < prev['price']
-                        else:
-                            prev['correct'] = None
-                        if prev['correct'] is not None:
-                            STATE.total_signals += 1
-                            if prev['correct']:
-                                STATE.correct_signals += 1
+                # ── DUPLICATE GUARD ───────────────────────────────────────
+                # Only log if this candle's timestamp is NEW (not seen before)
+                # This prevents the same candle being logged multiple times
+                # during consecutive polls within the same 5-min window
+                last_ts = STATE.prediction_log[-1]['timestamp'] if STATE.prediction_log else None
+                is_new_candle = (pred['timestamp'] != last_ts)
 
-                STATE.prediction_log.append(pred)
-                STATE.latest_pred = pred
+                if is_new_candle:
+                    # Update the previous prediction's "actual_price"
+                    if STATE.prediction_log:
+                        prev = STATE.prediction_log[-1]
+                        if prev['actual_price'] is None:
+                            prev['actual_price'] = pred['price']
+                            if prev['signal'] == "UP":
+                                prev['correct'] = pred['price'] > prev['price']
+                            elif prev['signal'] == "DOWN":
+                                prev['correct'] = pred['price'] < prev['price']
+                            else:
+                                prev['correct'] = None
+                            if prev['correct'] is not None:
+                                STATE.total_signals += 1
+                                if prev['correct']:
+                                    STATE.correct_signals += 1
+
+                    STATE.prediction_log.append(pred)
+                    STATE.latest_pred = pred
+                    log.info(f"NEW candle logged → {pred['timestamp']}")
+                else:
+                    # Same candle — just update the latest display, don't log again
+                    STATE.latest_pred = pred
+                    log.info(f"Same candle ({pred['timestamp']}) — skipping duplicate log")
 
                 sig_icon = {"UP":"🟢","DOWN":"🔴","NEUTRAL":"🟡"}.get(pred['signal'],'⚪')
                 log.info(
