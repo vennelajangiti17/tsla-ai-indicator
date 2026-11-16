@@ -1,4 +1,4 @@
-# Ignore secrets and environment
+# Sensitive credentials and local cache
 .env
 venv/
 __pycache__/
@@ -6,8 +6,11 @@ __pycache__/
 *.log
 .DS_Store
 
-# Allow tracking the serialized model package for easy mentor grading
-!models/tsla_xgb_model.pkl
+# Large intermediate features file (reproducible via step4_features_and_target.py)
+data/tsla_features.csv
 
-# Allow tracking features dataset for reproduction
-!data/tsla_features.csv
+# Keep trained model, raw data, charts, and persistent logs
+!models/tsla_xgb_model.pkl
+!data/tsla_5m_historical.csv
+!data/tsla_day_chart.png
+!logs/prediction_log.json

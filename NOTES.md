@@ -110,3 +110,42 @@
 - **True 10-Minute Queue**: Each prediction is held in a 2-candle pending queue (`candles_passed < 2`). Upon the close of the 2nd candle (10 minutes), the price move is measured against the $\pm 0.08\%$ threshold and assigned ✅ (Win), ❌ (Loss), or 🟡 (Flat).
 - **Disk Persistence**: Predictions are automatically saved to `logs/prediction_log.json` so server restarts or browser refreshes never wipe live testing history.
 - **Frontend**: TradingView Lightweight Charts (v4.1.3), live candlesticks, buy/sell markers, indicator gauges, NYSE market status badge, and real-time prediction log table.
+
+
+---
+
+## Phase 6 — Purging, Calibration & Statistical Rigor (Audit Upgrade)
+
+- **2-Candle Purging (`PURGE_BARS = 2`)**: To prevent 10-minute label overlap leakage between splits, a 2-candle gap was purged at the boundaries of Train-Val and Val-Test splits.
+- **Statistical Significance (One-Sided Binomial Test)**:
+  - Evaluation on Test Set: $N = 409$ confident signals ($P \ge 0.55$ or $P \le 0.45$).
+  - Correct Calls: 225 out of 409 (**55.01% accuracy**).
+  - Majority Class Baseline: 50.5% (336 / 666).
+  - Exact Binomial Test $p$-value: **$p = 0.0362 < 0.05$** (Statistically significant at 95% confidence).
+  - Wilson 95% Confidence Interval: **[50.2%, 59.8%]**.
+  - UP Precision: **53.3%** (137 / 257).
+  - DOWN Precision: **57.9%** (88 / 152).
+- **Feature Ablation Study**:
+  - Indicators-Only (17 classical features): 54.81% accuracy, 60.8% coverage.
+  - Full Features (35 features including volume, VWAP, session timing): **55.01% accuracy, 61.4% coverage**.
+  - Confirms volume and volatility features improve signal confidence and actionable throughput.
+- **Platt Probability Calibration**:
+  - Logistic regression scaler fitted strictly on validation set predictions.
+  - Reliability diagram and distribution histogram generated at `results/calibration_curve.png`.
+
+---
+
+## Phase 7 — Cost-Aware Friction Backtesting (40 Marks Fulfill)
+
+- **Execution Cost**: **2.0 basis points ($0.02\%$) round-trip** (1 bps spread + 1 bps slippage).
+- **Test Period**: Oct 22 to Nov 06, 2026 (666 bars).
+- **Results**:
+  - Initial Capital: $100,000.00
+  - Proposed Strategy Final Capital: **$106,012.13 (+6.01% Net Return)**
+  - Buy & Hold TSLA Final Capital: **$93,898.07 (-6.10% Net Return)**
+  - Net Strategy Alpha: **+12.11% Outperformance**
+  - Annualized Sharpe Ratio: **4.72** (vs -0.42 Buy & Hold)
+  - Maximum Drawdown: **-7.63%** (vs -18.03% Buy & Hold)
+  - Net Win Rate: **55.02%** (230 Wins / 188 Losses)
+  - Profit Factor: **1.10**
+- **Artifacts Generated**: `results/equity_curve.png` and `results/cost_aware_backtest.md`.

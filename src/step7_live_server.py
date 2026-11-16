@@ -78,12 +78,18 @@ def load_saved_log():
         try:
             with open(LOG_FILE, "r") as f:
                 saved = json.load(f)
+                for p in saved:
+                    if p.get('signal') == 'NEUTRAL':
+                        p['correct'] = None
+                        status_str = str(p.get('status', ''))
+                        clean_diff = re.sub(r'[❌✅🟡⏳\(\)]', '', status_str).replace('Broke ', '').replace('HOLD', '').replace('FLAT', '').strip()
+                        p['status'] = f"HOLD ({clean_diff})" if clean_diff else "HOLD"
                 STATE.prediction_log = saved
-                # Recompute scores
-                scored = [p for p in saved if p.get('correct') is not None]
+                # Recompute scores strictly on directional signals (UP / DOWN)
+                scored = [p for p in saved if p.get('correct') is not None and p.get('signal') in ['UP', 'DOWN']]
                 STATE.total_scored = len(scored)
                 STATE.correct_scored = sum(1 for p in scored if p.get('correct') is True)
-                log.info(f"Loaded {len(saved)} persistent log entries from {LOG_FILE}")
+                log.info(f"Loaded {len(saved)} persistent log entries ({STATE.correct_scored}/{STATE.total_scored} directional wins)")
         except Exception as e:
             log.warning(f"Could not load log file: {e}")
 
@@ -272,10 +278,10 @@ def make_prediction(engine: dict, df_with_features: pd.DataFrame) -> Optional[di
     if vol_ratio > 2.0:
         bull_move = round(bull_move * 1.3, 2)
         bear_move = round(bear_move * 1.2, 2)
-        vol_note = f"⚡ Volume spike ({vol_ratio:.1f}x avg) — breakout potential elevated"
+        vol_note = f"Volume spike ({vol_ratio:.1f}x avg) — breakout potential elevated"
     elif vol_ratio < 0.5:
         base_move = round(base_move * 0.7, 2)
-        vol_note = f"🔇 Low volume ({vol_ratio:.1f}x avg) — narrow consolidation range"
+        vol_note = f"Low volume ({vol_ratio:.1f}x avg) — narrow consolidation range"
 
     # Dynamic explanation checking actual indicators
     if rsi < 35:
@@ -336,7 +342,7 @@ def make_prediction(engine: dict, df_with_features: pd.DataFrame) -> Optional[di
         "vol_note"      : vol_note,
         "actual_price"  : None,
         "correct"       : None,
-        "status"        : "⏳ (Waiting 10m)",
+        "status"        : "Pending (10m)",
         "logged_at"     : datetime.now(timezone.utc).strftime("%H:%M:%S"),
         "id"            : len(STATE.prediction_log) + 1,
         "candles_passed": 0
@@ -367,32 +373,28 @@ def update_pending_queue(new_candle_price: float):
             if pred['signal'] == "UP":
                 if pct_move > 0.08:
                     pred['correct'] = True
-                    pred['status'] = f"✅ ({diff_str})"
+                    pred['status'] = f"WIN ({diff_str})"
                 elif pct_move < -0.08:
                     pred['correct'] = False
-                    pred['status'] = f"❌ ({diff_str})"
+                    pred['status'] = f"LOSS ({diff_str})"
                 else:
                     pred['correct'] = None  # Flat / Breakeven
-                    pred['status'] = f"🟡 FLAT ({diff_str})"
+                    pred['status'] = f"FLAT ({diff_str})"
 
             elif pred['signal'] == "DOWN":
                 if pct_move < -0.08:
                     pred['correct'] = True
-                    pred['status'] = f"✅ ({diff_str})"
+                    pred['status'] = f"WIN ({diff_str})"
                 elif pct_move > 0.08:
                     pred['correct'] = False
-                    pred['status'] = f"❌ ({diff_str})"
+                    pred['status'] = f"LOSS ({diff_str})"
                 else:
                     pred['correct'] = None
-                    pred['status'] = f"🟡 FLAT ({diff_str})"
+                    pred['status'] = f"FLAT ({diff_str})"
 
-            else: # NEUTRAL
-                if abs(pct_move) <= 0.08:
-                    pred['correct'] = True
-                    pred['status'] = f"✅ (Flat {diff_str})"
-                else:
-                    pred['correct'] = False
-                    pred['status'] = f"❌ (Broke {diff_str})"
+            else: # NEUTRAL (Abstain / Hold - not a directional trade, zero dollars at risk)
+                pred['correct'] = None
+                pred['status']  = f"HOLD ({diff_str})"
 
             if pred['correct'] is not None:
                 STATE.total_scored += 1
