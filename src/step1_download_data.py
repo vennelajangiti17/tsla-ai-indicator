@@ -51,9 +51,9 @@ def download_historical_data():
 
     client = StockHistoricalDataClient(API_KEY, SECRET_KEY)
 
-    # Download last 58 days (Alpaca free tier allows up to 2 years of 1-min data)
+    # Download last 120 days (6 months — more market conditions = better model)
     end_date   = datetime.now()
-    start_date = end_date - timedelta(days=58)
+    start_date = end_date - timedelta(days=120)
 
     print(f"\n  Requesting 5-minute bars for {TICKER}...")
     print(f"  Date range: {start_date.strftime('%Y-%m-%d')} → {end_date.strftime('%Y-%m-%d')}")

@@ -136,6 +136,10 @@ def fetch_recent_bars(n_bars: int = 100) -> pd.DataFrame:
 def compute_features(df: pd.DataFrame) -> pd.DataFrame:
     """Compute all 35 technical features on a candle buffer."""
     df = df.copy()
+    if df.index.tz is None:
+        df.index = df.index.tz_localize("UTC")
+    df.index = df.index.tz_convert("America/New_York")
+
     close  = df['Close']
     high   = df['High']
     low    = df['Low']
@@ -175,7 +179,7 @@ def compute_features(df: pd.DataFrame) -> pd.DataFrame:
     df['vwap_approx']= (df['typical_price'] * volume).rolling(20).sum() / volume.rolling(20).sum()
     df['price_vs_vwap'] = (close - df['vwap_approx']) / df['vwap_approx'] * 100
 
-    # Time
+    # Time (in America/New_York market time)
     df['hour']           = df.index.hour + df.index.minute / 60
     df['is_first_30min'] = ((df.index.hour == 9)  & (df.index.minute < 60)).astype(int)
     df['is_last_30min']  = ((df.index.hour == 15) & (df.index.minute >= 30)).astype(int)
@@ -234,6 +238,7 @@ def make_prediction(engine: dict, df_with_features: pd.DataFrame) -> Optional[di
     rsi           = float(row.get('rsi_14', 50.0))
     macd_hist     = float(row.get('macd_hist', 0.0))
     bb_pct        = float(row.get('bb_pct', 0.5))
+    stoch_k       = float(row.get('stoch_k', 50.0))
 
     base_move = atr * 0.8
     bull_move = atr * 1.5
@@ -293,6 +298,7 @@ def make_prediction(engine: dict, df_with_features: pd.DataFrame) -> Optional[di
         "macd_hist"     : round(macd_hist, 4),
         "bb_pct"        : round(bb_pct * 100, 1),
         "ema_cross"     : round(float(row.get('ema_cross', 0)), 3),
+        "stoch_k"       : round(stoch_k, 1),
 
         # Scenarios
         "base_target"   : base_target,
@@ -412,13 +418,13 @@ def get_log_summary() -> list:
             "signal"       : p['signal'],
             "confidence"   : f"{p['confidence']:.1f}%",
             "price"        : f"${p['price']:.2f}",
+            "rsi"          : f"{p['rsi']:.0f}",
             "base_target"  : f"${p['base_target']:.2f}",
             "bull_target"  : f"${p['bull_target']:.2f}",
             "bear_target"  : f"${p['bear_target']:.2f}",
             "actual"       : f"${p['actual_price']:.2f}" if p['actual_price'] else "—",
             "correct"      : ("✅" if p['correct'] else "❌") if p['correct'] is not None else "⏳",
             "vol_note"     : p['vol_note'],
-            "rsi"          : p['rsi'],
             "logged_at"    : p['logged_at'],
         })
     return list(reversed(entries))   # newest first

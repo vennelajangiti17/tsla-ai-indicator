@@ -40,8 +40,8 @@ OUT_PATH  = "data/tsla_features.csv"
 #   1 = price goes UP by >0.10% in next 15 min
 #   0 = price goes DOWN by >0.10% in next 15 min
 # ─────────────────────────────────────────────────────────
-LOOKAHEAD_CANDLES = 3    # predict 15 minutes ahead
-MIN_MOVE_PCT      = 0.10 # ignore "flat" candles below this % move
+LOOKAHEAD_CANDLES = 2    # predict 10 minutes ahead (2 × 5min)
+MIN_MOVE_PCT      = 0.08 # slightly lower threshold to keep more rows
 
 # Train/Val/Test split ratios (MUST be chronological, NEVER random)
 TRAIN_RATIO = 0.70

@@ -94,6 +94,21 @@
     animation: pulse 1.5s ease-in-out infinite;
   }
 
+  /* ── Market Status Badge ───────────────────── */
+  .market-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+  }
+  .market-badge.open  { background: rgba(63,185,80,0.2);  color: var(--green); border: 1px solid var(--green); }
+  .market-badge.closed{ background: rgba(248,81,73,0.15); color: var(--red);   border: 1px solid var(--red);   }
+  .market-badge.pre   { background: rgba(210,153,34,0.2); color: var(--yellow);border: 1px solid var(--yellow);}
+
   @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50%       { opacity: 0.4; transform: scale(0.8); }
@@ -475,6 +490,7 @@
     </div>
   </div>
   <div class="header-right">
+    <span id="market-status" class="market-badge closed">🔴 MARKET CLOSED</span>
     <span class="live-dot">LIVE</span>
     <span id="server-time">--:--:-- IST</span>
   </div>
@@ -589,6 +605,13 @@
       <div class="ind-value" id="ind-ema">—</div>
     </div>
     <div class="ind-item">
+      <div class="ind-label">Stoch %K</div>
+      <div class="ind-value" id="ind-stoch">—</div>
+      <div class="ind-bar-wrap">
+        <div class="ind-bar-fill" id="ind-stoch-bar" style="width:50%"></div>
+      </div>
+    </div>
+    <div class="ind-item">
       <div class="ind-label">Last Update</div>
       <div class="ind-value" id="ind-update" style="font-size:11px">—</div>
     </div>
@@ -615,6 +638,7 @@
             <th>Signal</th>
             <th>Conf</th>
             <th>Price</th>
+            <th>RSI</th>
             <th>Base →</th>
             <th>Bull →</th>
             <th>Bear →</th>
@@ -623,9 +647,9 @@
           </tr>
         </thead>
         <tbody id="log-tbody">
-          <tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:20px">
+          <tr><td colspan="11" style="text-align:center;color:var(--text-dim);padding:20px">
             Waiting for first prediction...<br>
-            <span style="font-size:10px">(Market must be open: 8:00 PM – 1:30 AM IST)</span>
+            <span style="font-size:10px">(Market regular hours: 8:00 PM – 1:30 AM IST)</span>
           </td></tr>
         </tbody>
       </table>
@@ -639,7 +663,7 @@
 
 <!-- ── JAVASCRIPT ──────────────────────────────────────── -->
 <script>
-// ── Clock ────────────────────────────────────────────────
+// ── Clock & Market Status ────────────────────────────────
 function updateClock() {
   const now = new Date();
   const ist = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
@@ -647,6 +671,32 @@ function updateClock() {
   const m = String(ist.getUTCMinutes()).padStart(2, '0');
   const s = String(ist.getUTCSeconds()).padStart(2, '0');
   document.getElementById('server-time').textContent = `${h}:${m}:${s} IST`;
+
+  // Market status (NYSE regular hours 9:30 - 16:00 America/New_York)
+  try {
+    const nyStr = now.toLocaleString("en-US", { timeZone: "America/New_York" });
+    const nyDate = new Date(nyStr);
+    const day = nyDate.getDay(); // 0 Sun, 6 Sat
+    const mins = nyDate.getHours() * 60 + nyDate.getMinutes();
+    const badge = document.getElementById('market-status');
+    if (badge) {
+      if (day >= 1 && day <= 5) {
+        if (mins >= 9 * 60 + 30 && mins < 16 * 60) {
+          badge.className = "market-badge open";
+          badge.textContent = "🟢 MARKET OPEN (NYSE)";
+        } else if (mins >= 4 * 60 && mins < 9 * 60 + 30) {
+          badge.className = "market-badge pre";
+          badge.textContent = "🟡 PRE-MARKET";
+        } else {
+          badge.className = "market-badge closed";
+          badge.textContent = "🔴 MARKET CLOSED";
+        }
+      } else {
+        badge.className = "market-badge closed";
+        badge.textContent = "🔴 WEEKEND (CLOSED)";
+      }
+    }
+  } catch(e) {}
 }
 setInterval(updateClock, 1000);
 updateClock();
@@ -750,6 +800,10 @@ function applyPrediction(pred) {
 
   document.getElementById('ind-ema').textContent  = pred.ema_cross.toFixed(3);
   document.getElementById('ind-ema').style.color  = pred.ema_cross > 0 ? '#3fb950' : '#f85149';
+  if (pred.stoch_k !== undefined) {
+    document.getElementById('ind-stoch').textContent = pred.stoch_k;
+    document.getElementById('ind-stoch-bar').style.width = `${Math.min(pred.stoch_k, 100)}%`;
+  }
   document.getElementById('ind-update').textContent = pred.logged_at;
 
   // Scenarios
@@ -796,6 +850,7 @@ function updateLog(entries) {
       <td class="${cls}">${icon} ${e.signal}</td>
       <td>${e.confidence}</td>
       <td style="color:var(--blue)">${e.price}</td>
+      <td style="color:${parseInt(e.rsi) < 30 ? 'var(--green)' : parseInt(e.rsi) > 70 ? 'var(--red)' : 'var(--text)'}">${e.rsi || '—'}</td>
       <td>${e.base_target}</td>
       <td>${e.bull_target}</td>
       <td>${e.bear_target}</td>
