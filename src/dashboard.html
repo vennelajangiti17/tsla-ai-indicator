@@ -1078,18 +1078,21 @@ function applyPrediction(pred) {
 
 function formatVerdict(str) {
   if (!str) return '<span style="color:var(--text-dim)">—</span>';
-  let s = String(str).replace(/[✅❌🟡⏳🟢🔴●▲▼🎯🐂🐻☀️🌙⚡🔇✓]/gu, '').trim();
+  let raw = String(str);
+  let s = raw.replace(/[✅❌🟡⏳🟢🔴●▲▼🎯🐂🐻☀️🌙⚡🔇✓]/gu, '').trim();
   
-  if (s.startsWith('WIN') || String(str).includes('✅')) {
-    return `<span class="verdict-win">${s}</span>`;
+  if (s.startsWith('WIN') || raw.includes('✅')) {
+    let clean = s.replace(/^WIN\s*/i, '').trim();
+    return `<span class="verdict-win">WIN ${clean}</span>`;
   }
-  if (s.startsWith('LOSS') || String(str).includes('❌')) {
-    return `<span class="verdict-loss">${s}</span>`;
+  if (s.startsWith('LOSS') || raw.includes('❌')) {
+    let clean = s.replace(/^LOSS\s*/i, '').trim();
+    return `<span class="verdict-loss">LOSS ${clean}</span>`;
   }
-  if (s.startsWith('HOLD') || s.startsWith('FLAT') || String(str).includes('🟡')) {
+  if (s.startsWith('HOLD') || s.startsWith('FLAT') || raw.includes('🟡')) {
     return `<span class="verdict-hold">${s}</span>`;
   }
-  if (s.includes('Pending') || s.includes('Waiting') || String(str).includes('⏳')) {
+  if (s.includes('Pending') || s.includes('Waiting') || raw.includes('⏳')) {
     return `<span class="verdict-pending">Pending (10m)</span>`;
   }
   return `<span style="color:var(--text-muted)">${s}</span>`;

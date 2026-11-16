@@ -52,29 +52,12 @@ Standard technical indicators often give false breakout signals during low-volum
 
 Table 1: Related Work Summary
 
-Study: Fischer and Krauss (2018)
-Data: Daily S&P 500 stocks (1992 to 2015)
-Method: LSTM Deep Neural Networks
-How it was tested: Walk-forward in time
-Limitation: Daily data only; trading costs can wipe out the daily edge.
-
-Study: Chen and Guestrin (2016)
-Data: General tabular benchmarks
-Method: XGBoost
-How it was tested: Standard cross-validation
-Limitation: General algorithm; does not handle financial label overlap out of the box.
-
-Study: Lopez de Prado (2018)
-Data: Financial ML framework
-Method: Purged walk-forward time splits
-How it was tested: Methodological guide
-Limitation: Requires custom implementation of purging and stationarity.
-
-Study: Dixon et al. (2020)
-Data: High-frequency E-mini S&P futures
-Method: Deep Neural Networks on order book queues
-How it was tested: Chronological test split
-Limitation: Requires expensive Level 2 feeds not easily accessible for retail setups.
+| Study | Target Data | Method | How It Was Tested | Limitation |
+|---|---|---|---|---|
+| Fischer and Krauss (2018) | Daily S&P 500 stocks (1992 to 2015) | LSTM Deep Neural Networks | Walk-forward in time | Daily data only; trading costs can wipe out the daily edge |
+| Chen and Guestrin (2016) | General tabular benchmarks | XGBoost | Standard cross-validation | General algorithm; does not handle financial label overlap out of the box |
+| Lopez de Prado (2018) | Financial ML framework | Purged walk-forward time splits | Methodological guide | Requires custom implementation of purging and stationarity |
+| Dixon et al. (2020) | High-frequency E-mini S&P futures | Deep Neural Networks on order book queues | Chronological test split | Requires expensive Level 2 feeds not easily accessible for retail setups |
 
 Gap: Many student projects show a flattering backtest using random train-test splits (which leak future data), report no confidence ranges, and never run a live forward test. This project focuses on realistic methodology: a strict time split with a 2-candle purge, honest confidence intervals, simple baselines, a cost-aware backtest, and a live non-repainting web indicator.
 
@@ -95,20 +78,13 @@ The IEX feed covers a small part of total national equity volume (around 2% to 4
 
 Table 2: Data Quality Checks
 
-Check: Missing candles
-What I found: 0 missing candles during regular NYSE hours (9:30 AM to 4:00 PM ET).
-
-Check: Duplicate rows
-What I found: 0 duplicate timestamps found.
-
-Check: Impossible values
-What I found: Zero negative prices, zero negative volumes, zero high < low errors.
-
-Check: Extreme spikes
-What I found: High volatility around the 9:30 AM open; normalized using rolling ATR.
-
-Check: Target balance
-What I found: 2,244 UP (50.6%) vs 2,194 DOWN (49.4%) in the clean dataset.
+| Quality Check | What I Found | Resolution / Verification |
+|---|---|---|
+| Missing candles | 0 missing candles | Verified regular NYSE hours (9:30 AM to 4:00 PM ET) |
+| Duplicate rows | 0 duplicate timestamps | Verified unique timestamp index |
+| Impossible values | Zero negative prices, volumes, or high < low | Passed all sanity checks |
+| Extreme spikes | High volatility around 9:30 AM open | Normalized using rolling 14-period ATR |
+| Target balance | 2,244 UP (50.6%) vs 2,194 DOWN (49.4%) | Naturally balanced; no synthetic balancing required |
 
 [INSERT SCREENSHOT: Target Class Distribution Plot (results/eda_target_distribution.png)]
 Caption: Figure 1 shows that the clean binary target classes are naturally balanced (50.6% UP vs 49.4% DOWN), so plain accuracy is a fair metric.
@@ -121,37 +97,14 @@ Data was split in time order. I never shuffled, because shuffling lets the model
 
 Table 3: Chronological Data Splits
 
-Split: Training
-Share: 70% (oldest)
-Candles: 3,104 bars
-Dates: July 13 to October 02, 2026
-Use: Fit model trees
-
-Split: Purge Gap 1
-Share: 2 bars
-Candles: 2 bars
-Dates: Boundary
-Use: Prevents label overlap into validation
-
-Split: Validation
-Share: 15% (middle)
-Candles: 664 bars
-Dates: October 02 to October 22, 2026
-Use: Hyperparameter tuning and calibration
-
-Split: Purge Gap 2
-Share: 2 bars
-Candles: 2 bars
-Dates: Boundary
-Use: Prevents label overlap into test
-
-Split: Test
-Share: 15% (newest)
-Candles: 666 bars
-Dates: October 22 to November 06, 2026
-Use: Single evaluation pass for final report
-
-Total rows: 3,104 + 2 + 664 + 2 + 666 = 4,438 clean rows.
+| Split Block | Share | Period | Candle Count | Purpose |
+|---|---|---|---|---|
+| Training | 70% | July 13 to October 02, 2026 | 3,104 bars | Fit XGBoost trees |
+| Purge Gap 1 | 2 bars | Boundary | 2 bars | Prevents label overlap into validation |
+| Validation | 15% | October 02 to October 22, 2026 | 664 bars | Hyperparameter tuning and Platt calibration |
+| Purge Gap 2 | 2 bars | Boundary | 2 bars | Prevents label overlap into test |
+| Test | 15% | October 22 to November 06, 2026 | 666 bars | Single evaluation pass for final report |
+| Total Clean Rows | 100% | July 13 to November 06, 2026 | 4,438 bars | Non-null binary target rows |
 
 4.2 Gap between parts
 Because each label looks 2 candles (10 minutes) into the future, the last two candles of training have targets calculated from prices inside validation. To stop this leak, I left a gap of 2 candles between training, validation, and test.
@@ -198,20 +151,13 @@ Live Engine: Alpaca Polling (60s) -> Closed Bars Only -> Features -> Saved Model
 
 Table 4: Baseline Models
 
-Model: Always UP
-Why included: The simplest guess; tests whether the model is just riding upward drift.
-
-Model: RSI Rule
-Why included: Standard technical rule (BUY when RSI < 35, SELL when RSI > 65, HOLD otherwise).
-
-Model: Logistic Regression
-Why included: Simple linear learning model with standardized features and L2 regularization.
-
-Model: XGBoost (Raw 0.50)
-Why included: Full tree ensemble evaluating all test candles with default 0.50 cutoff.
-
-Model: XGBoost (Confident)
-Why included: Proposed model emitting signals only when probability is >= 55% or <= 45%.
+| Model | Model Type | Why Included |
+|---|---|---|
+| Always UP | Trivial Heuristic | The simplest guess; tests whether the model is just riding upward drift |
+| RSI Rule | Domain Rule | Standard technical rule (BUY when RSI < 35, SELL when RSI > 65, HOLD otherwise) |
+| Logistic Regression | Conventional Linear ML | Simple linear model with standardized features and L2 regularization |
+| XGBoost (Raw 0.50) | Gradient Boosted Trees | Full tree ensemble evaluating all test candles with default 0.50 cutoff |
+| XGBoost (Confident) | Tree Ensemble + Filter | Proposed model emitting signals only when probability is >= 55% or <= 45% |
 
 5.2 Setup details
 - Same chronological split and metrics for every model.
