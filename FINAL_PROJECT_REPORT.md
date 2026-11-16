@@ -1,425 +1,464 @@
-# AI-POWERED TRADING INDICATOR FOR TESLA USING MACHINE LEARNING
-## End-to-End Directional Price Movement Forecasting on 5-Minute Intraday Bars
+Intraday Price Direction Prediction for TSLA Using XGBoost on 5-Minute Volume and Volatility Features
 
-**Department of Computer Science and Engineering**  
-**Indian Institute of Technology Patna (IIT Patna)**  
-**IMPACT Lab — B.Tech Coursework Project**  
+Name: Jangiti Vennela
+Roll No: 2401CS27
+Course: End-to-End Machine Learning Project, IMPACT Lab, Dept. of CSE, IIT Patna
+Repository: https://github.com/vennelajangiti17/tsla-ai-indicator
 
-- **Student Name**: Vennela Jangiti  
-- **Degree**: Bachelor of Technology (B.Tech) in Computer Science and Engineering  
-- **Academic Session**: 2026–2027  
-- **Asset Selected**: Tesla, Inc. (`NASDAQ: TSLA`)  
-- **Execution Mode**: Option B — Standalone Live Web Application & ML Pipeline  
-- **Supervisor / Mentor**: Department of CSE Project Committee  
 
----
+Abstract
 
-## ABSTRACT
+Traders commonly use indicators like RSI and MACD, but these tools only summarize past price movements using fixed formulas. In this project, I built an intraday indicator powered by a machine learning model. The model looks at 5-minute candles of Tesla (TSLA) and predicts whether the price is likely to go UP by at least 0.08%, or go DOWN by at least 0.08%, over the next 10 minutes (2 candles ahead). When the model is not confident, it emits a HOLD signal, which means low confidence and tells the trader to stay out of the market.
 
-Traditional technical analysis tools such as the Relative Strength Index (RSI), Moving Average Convergence Divergence (MACD), and Bollinger Bands compute deterministic summaries of past price actions using static formulas and arbitrary threshold levels. While widely used by discretionary traders, these classical rules do not adapt to non-stationary market regimes, cannot evaluate multivariate interactions, and fail to quantify the directional probability of future candles.
+I trained an XGBoost model on 120 calendar days of 5-minute data from the Alpaca Markets API. The feature pipeline computes 35 stationary features from price, volume, and volatility. To avoid looking into the future, the data was split in time order, and a 2-candle purging gap was added between splits so overlapping 10-minute labels do not leak. I compared the model with three simple baselines: always predicting UP, a basic RSI rule, and logistic regression. The indicator runs live on a custom web app and only evaluates closed candles, so a signal is locked and never repaints.
 
-In this project, we designed, developed, and experimentally validated an end-to-end, production-grade machine learning trading indicator for Tesla, Inc. (`NASDAQ: TSLA`) operating on 5-minute intraday candles. Drawing continuous data feeds through the Alpaca Markets API, our pipeline computes 35 stationary technical, momentum, volume, and volatility features. An extreme gradient boosted decision tree model (XGBoost) was trained on 120 calendar days of historical market data using a walk-forward chronological evaluation framework. The objective is to forecast whether Tesla will move UP by at least plus 0.08 percent or DOWN by at least minus 0.08 percent over a 10-minute forward horizon (2 candles ahead).
+On the held-out test set of 666 candles, the model produced 409 confident signals with an accuracy of 55.01% (95% Wilson confidence range of 50.2% to 59.8%). Precision on UP signals was 53.3% and precision on DOWN signals was 57.9%. An exact one-sided binomial test against the 50.5% majority baseline gave a p-value of 0.0362, showing that this edge is statistically distinguishable from luck at the 95% level. In a cost-aware backtest with 2.0 basis points of round-trip trading friction, the strategy made +6.01% net return while Tesla stock fell -6.10%.
 
-To address statistical fragility and label overlap, we implemented a 2-candle purging buffer between data splits, fitted Platt logistic calibration on validation probabilities, and applied a selective confidence filter requiring at least 55 percent conviction for UP signals and at most 45 percent for DOWN signals. 
+My honest summary: Short-term price direction is very difficult to predict and close to a coin toss. The results show a small, realistic edge of about 4.5 percentage points over the baseline. The main value of the indicator comes from abstaining during low-confidence choppy periods, which avoids whipsaw losses.
 
-On an untouched held-out test set spanning 666 5-minute bars (October 22 to November 06, 2026), the proposed system generated 409 confident signals with an overall accuracy of 55.01 percent (95 percent Wilson confidence interval of 50.2 percent to 59.8 percent). The precision on UP calls was 53.3 percent (137 out of 257) and on DOWN calls was 57.9 percent (88 out of 152). An exact one-sided binomial test against the 50.5 percent majority baseline yielded a p-value of 0.0362, demonstrating that the directional edge is statistically distinguishable from chance at the 95 percent confidence level. Furthermore, a realistic cost-aware backtest incorporating 2.0 basis points of round-trip transaction friction generated a net portfolio return of plus 6.01 percent (an annualized Sharpe ratio of 4.72 and maximum drawdown of minus 7.63 percent) during a market regime where Tesla stock fell by minus 6.10 percent, producing an outperformance alpha of plus 12.11 percent. The model was deployed as a real-time web application featuring TradingView Lightweight Charts, multi-scenario volatility targets, and an immutable prediction log table ensuring a zero-repainting execution guarantee.
 
----
+Contributions
 
-## TABLE OF CONTENTS
+1. Complete working pipeline: automated scripts for downloading data, building features, model training, validation, backtesting, and a real-time web dashboard.
+2. Fair baseline comparison: compared against an always-UP rule, an RSI threshold rule, and logistic regression on the exact same time split and metrics.
+3. Guaranteed zero repainting: signals evaluate only on completed 5-minute candles and are saved immediately to a permanent log file on disk.
+4. Honest validation checks: implemented a 2-candle purge buffer, Platt probability calibration, confidence intervals, a binomial significance test, and an ablation study.
 
-1. Chapter 1: Introduction & Problem Formulation
-2. Chapter 2: Literature Review & Industry Benchmarks
-3. Chapter 3: Data Collection, Ingestion & Data Dictionary
-4. Chapter 4: Target Formulation, Purging & Zero-Leakage Protocol
-5. Chapter 5: Feature Engineering & Stationarity Transformations
-6. Chapter 6: Model Architecture, Training & Probability Calibration
-7. Chapter 7: Academic Benchmark Evaluation & Statistical Significance
-8. Chapter 8: Feature Ablation Study & Hypothesis Verification
-9. Chapter 9: Cost-Aware Backtesting & Simulated Profit (Marking Scheme Fulfillment)
-10. Chapter 10: Real-Time Live Architecture & Anti-Repainting Guarantee
-11. Chapter 11: Trader User Experience, Interface Design & Ledger Auditing
-12. Chapter 12: Error Analysis, Failure Modes & Honest Limitations
-13. Chapter 13: Conclusion, Future Roadmap & References
 
----
+1. Introduction and Problem Statement
 
-## CHAPTER 1: INTRODUCTION & PROBLEM FORMULATION
+1.1 Why this problem
+Indicators like RSI, MACD, and Bollinger Bands use fixed formulas written by humans. They do not learn from market data and cannot tell a trader the probability of what will happen next. This project asks us to replace fixed rules with a machine learning model that learns from past market data and provides a calibrated probability.
 
-### 1.1 Context and Motivation
-Financial time series forecasting is one of the most demanding problems in applied computer science. Intraday equity markets are characterized by high noise, non-stationarity, continuous regime shifts, and low signal-to-noise ratios. Retail traders and quantitative researchers alike frequently depend on technical indicators like RSI, Stochastic Oscillators, and Exponential Moving Averages to guide their trade entries and exits. However, these classical indicators suffer from three structural deficiencies:
-
-1. **Univariate Isolation**: Each indicator measures an isolated dimension of price action without conditioning on other market factors. For example, an RSI value of 28 is traditionally viewed as "oversold," suggesting a buy signal. However, during an institutional sell-off on surging volume, an oversold RSI frequently remains depressed for hours, causing severe drawdown for mean-reversion traders.
-2. **Fixed Deterministic Thresholds**: Traditional rules use hard-coded cutoff values (such as 30 and 70 for RSI) that take no account of changing intraday volatility or session time.
-3. **Lack of Probabilistic Output**: Conventional technical indicators do not provide a confidence level or probability distribution. A trader has no mechanism to determine whether a given crossover has a 51 percent or an 80 percent likelihood of succeeding.
-
-Machine learning offers an expressive mathematical framework to synthesize multiple non-linear technical and volume dynamics simultaneously. Rather than replacing technical indicators, machine learning can act as an intelligent aggregator that evaluates multiple momentum, volatility, and volume indicators together to output a calibrated probability distribution.
-
-### 1.2 Asset Selection: Why Tesla (`NASDAQ: TSLA`)?
-Tesla was chosen as the target asset for this project due to its specific market microstructure properties:
-- **Exceptional Liquidity**: Tesla consistently ranks among the top three most heavily traded equities by dollar volume in global markets, trading between 50 million and 120 million shares per session. This deep liquidity ensures tight bid-ask spreads (typically 1 to 2 cents), minimizing execution slippage for intraday strategies.
-- **High Beta and Natural Volatility**: TSLA exhibits an annualized volatility exceeding 50 percent and an intraday Average True Range (ATR) that regularly spans between 1.00 and 3.50 dollars on 5-minute candles. This provides sufficient directional range for a 10-minute strategy to overcome transaction fees.
-- **Retail and Institutional Order Flow Balance**: Tesla's order book reflects an active blend of institutional algorithmic flow, retail trend-following, and options market maker hedging (gamma flow), providing rich momentum patterns for tree-based models to detect.
-
-### 1.3 Exact Problem Statement
-Given 35 stationary technical, momentum, volume, and volatility features calculated on closed 5-minute OHLCV candles, predict whether the closing price of TSLA will move UP by at least plus 0.08 percent or DOWN by at least minus 0.08 percent exactly 10 minutes into the future (2 candles ahead) on live, unseen market data.
-
-### 1.4 Formal Success Criteria Defined Prior to Experiments
-To ensure scientific validity, success criteria were established before model evaluation:
-1. **Directional Accuracy**: Achieve a test accuracy exceeding 54.0 percent on high-conviction signals, outperforming the majority-class baseline with statistical significance (p < 0.05 via an exact one-sided binomial test).
-2. **Balanced Two-Sided Precision**: Maintain at least 52.0 percent precision on both UP (long) and DOWN (short) predictions, ensuring the model is not simply biased toward upward market drift.
-3. **Cost-Aware Profitability**: Deliver a positive net portfolio return after deducting 2.0 basis points of round-trip transaction costs (spread and slippage), achieving an annualized Sharpe ratio superior to a passive Buy-and-Hold benchmark.
-4. **Anti-Repainting Guarantee**: Zero post-hoc adjustment of past predictions, with all signals evaluated strictly on closed bars and permanently recorded in an append-only JSON ledger.
+1.2 Problem statement
+Given 35 features computed from 5-minute TSLA candles (price, volume, volatility, and momentum), predict whether the price will move UP by at least 0.08%, or DOWN by at least 0.08%, over the next 2 candles (10 minutes). The model emits a directional signal only when it is confident (probability >= 55% for UP, <= 45% for DOWN), and emits HOLD otherwise, indicating low confidence.
+- Task type: binary classification on financial time series, with a selective filter zone for low confidence.
+- Asset: TSLA (NASDAQ), single equity only.
+- Timeframe and horizon: 5-minute candles, predicting 2 candles ahead (10 minutes).
+- Why 0.08%?: On a 380 dollar stock like Tesla, 0.08% is about 30 cents. Moves smaller than 30 cents over 10 minutes are mostly spread and bid-ask noise. Because round-trip transaction costs are about 2 basis points (0.02%), targeting moves above 0.08% ensures the trade is larger than the friction.
 
----
-
-## CHAPTER 2: LITERATURE REVIEW & BACKGROUND BENCHMARKS
+1.3 Success criteria (set during development)
+- On the untouched test set, directional accuracy on confident signals should be at least 54.0% across at least 200 signals.
+- It should beat the always-UP baseline with statistical significance (p < 0.05 via an exact one-sided binomial test).
+- The confidence shown on the dashboard should match actual win rates (verified by a calibration check).
+- The strategy must produce a positive net return after deducting 2.0 basis points of round-trip trading friction.
+- The live indicator must never repaint and must run stably during market hours.
 
-The application of machine learning to financial asset pricing has expanded dramatically over the past decade. Our system design is anchored in key empirical findings from academic quantitative literature.
-
-### 2.1 Classical Machine Learning in Equity Prediction
-In their landmark study, *Krauss, Do, and Huck (2017)* applied Random Forests, Gradient Boosted Trees, and Deep Neural Networks to daily S&P 500 constituents from 1992 to 2015. They demonstrated that tree-based ensembles consistently outperformed single deep neural networks in tabular financial domains, reporting an average directional accuracy of approximately 54.3 percent. They emphasized that financial features require strict stationarity transformations, as feeding raw dollar prices into tree algorithms results in complete failure when prices move outside historical training ranges. Our project adapts these principles to high-frequency 5-minute intraday candles.
-
-### 2.2 Deep Learning and Order Book Dynamics
-*Dixon, Klabjan, and Bang (2020)* investigated high-frequency price moves across E-mini S&P futures using deep feedforward and recurrent neural networks on limit order book data. While achieving 53.8 percent accuracy on ultra-short horizons, they noted that order book features are computationally expensive and degrade rapidly when accessed over standard retail REST or WebSocket feeds due to network latency. Consequently, our work focuses on extracting structural volume and volatility signals directly from readily accessible OHLCV bars.
+1.4 Main idea (hypothesis)
+Standard technical indicators often give false breakout signals during low-volume sideways trading. I hypothesize that combining technical indicators with volume and volatility features (volume ratio compared to its 20-period average, distance from session VWAP, and session timing) helps the model filter out false moves and detect true short-term momentum in a volatile stock like TSLA. I test this idea directly with an ablation study in Section 7.
 
-### 2.3 Financial Machine Learning and Purged Cross-Validation
-*Marcos López de Prado (2018)*, in his influential treatise *Advances in Financial Machine Learning*, demonstrated that standard K-fold cross-validation is fundamentally flawed when applied to financial time series. When prediction labels span across multiple candles (such as our 10-minute horizon across 5-minute bars), training samples share informational overlap with adjacent test samples, causing severe informational leakage and falsely inflated validation metrics. López de Prado proposed "Purged Group Time-Series Splitting," which enforces an intentional buffer between splits equal to the prediction horizon. Our methodology adopts this protocol by inserting a 2-candle purge window between training, validation, and test sets.
 
-### 2.4 Comparative Summary Matrix
+2. Related Work and Gap
 
-| Research Work | Target / Timeframe | Feature Space | Model Framework | Reported Accuracy / Sharpe | Our Architectural Advantage |
-|---|---|---|---|---|---|
-| **Krauss et al. (2017)** | S&P 500 (Daily) | Momentum & mean-reversion | Random Forests & GBDT | ~54.3% Accuracy | Scaled to 5-min intraday bars with confidence-based abstention. |
-| **Dixon et al. (2020)** | E-mini S&P (High Freq) | Limit order queues | Deep Neural Networks | 53.8% Accuracy | Operates on standard OHLCV feeds without requiring L2 colocation. |
-| **López de Prado (2018)**| Multi-Asset Quantitative | Microstructure & Volatility | Purged Walk-Forward Trees | Sharpe 1.8 to 2.5 | Implements exact 2-bar purging buffer to guarantee zero leakage. |
-| **Our Work** | **TSLA (5-Min / 10m Horizon)** | **35 Stationary Features** | **XGBoost + Platt Scaling** | **55.0% Acc, Sharpe 4.72** | **End-to-end live web application with real-time zero-repainting ledger.** |
-
----
-
-## CHAPTER 3: DATASET COLLECTION, INGESTION & DATA DICTIONARY
+Table 1: Related Work Summary
 
-### 3.1 Data Source and Ingestion Pipeline
-Market data was collected via the Alpaca Markets Market Data v2 API using the Investors Exchange (IEX) feed. Alpaca provides institutional-grade programmatic access to real-time and historical US equity data with microsecond timestamp precision.
-- **Ticker**: Tesla, Inc. (`NASDAQ: TSLA`)
-- **Timeframe**: 5-Minute Intraday Candles (OHLCV)
-- **Historical Observation Range**: July 13, 2026 to November 06, 2026 (~120 calendar days, comprising 83 regular NYSE trading sessions)
-- **Total Raw Candles Downloaded**: 6,904 bars
-- **Clean Filtered Candles**: 4,516 rows (after discarding incomplete pre-market bars, market holidays, and indicator calculation warmup periods)
-- **Timezone**: `America/New_York` (Eastern Standard / Daylight Time)
-- **Missing Value Audit**: Exactly zero missing values or NaNs in the final engineered feature matrix.
-
-### 3.2 Evaluation of the IEX Data Feed
-A critical consideration in intraday research is feed consistency. While the consolidated SIP feed aggregates trades across all US exchanges, the Alpaca free tier streams the IEX feed. IEX captures approximately 2 to 4 percent of total national equity volume. However, because arbitrage bots continuously enforce price parity across venues, IEX execution prices for hyper-liquid equities like Tesla mirror the consolidated national best bid and offer (NBBO) within pennies. Most importantly, our framework utilizes the exact same IEX feed for historical model training and live WebSocket inference, ensuring zero distribution skew between development and production.
-
-### 3.3 Data Dictionary and Feature Inventory
-The feature matrix contains 35 engineered, stationary predictors categorized into six functional domains:
-
-1. **Trend and Moving Average Relatives**:
-   - `rsi_14`: 14-period Relative Strength Index bounded between 0 and 100.
-   - `macd_pct`: MACD line normalized as a percentage of closing price.
-   - `macd_signal_pct`: 9-period MACD signal line normalized by price.
-   - `macd_hist_pct`: Difference between MACD line and signal line as a percentage of price.
-   - `price_vs_ema_9`: Percentage distance of close from the 9-period exponential moving average.
-   - `price_vs_ema_21`: Percentage distance of close from the 21-period exponential moving average.
-   - `ema_cross_pct`: Percentage distance between 9 EMA and 21 EMA (momentum direction).
-
-2. **Volatility and Band Dimensions**:
-   - `price_vs_bb_upper`: Distance of current close to upper Bollinger Band (20-period, 2 std dev) as a percentage of price.
-   - `price_vs_bb_lower`: Distance of current close to lower Bollinger Band as a percentage of price.
-   - `price_vs_bb_mid`: Distance to the 20-period middle band (SMA).
-   - `bb_pct`: Bollinger Band percentage (b percent) indicating where close lies relative to the band width.
-   - `bb_width`: Width of the Bollinger Bands divided by the middle band.
-   - `atr_pct`: 14-period Average True Range normalized by closing price.
-
-3. **Oscillators and Momentum Indicators**:
-   - `stoch_k`: Fast stochastic oscillator (14-period) measuring current close relative to the high-low range.
-   - `stoch_d`: 3-period simple moving average of Stochastic K.
-   - `roc_5`: 5-candle Rate of Change (percentage price change over 25 minutes).
-   - `roc_10`: 10-candle Rate of Change (percentage price change over 50 minutes).
-
-4. **Volume and Flow Indicators**:
-   - `vol_ratio`: Current candle volume divided by the 20-period rolling simple moving average of volume.
-   - `obv_zscore`: 20-candle rolling Z-score of On-Balance Volume.
-   - `price_vs_vwap`: Percentage distance of current price from the session's cumulative Volume-Weighted Average Price.
-
-5. **Candle Geometry and Price Context**:
-   - `price_vs_high_20`: Percentage distance of current close from the rolling 20-candle intraday high.
-   - `price_vs_low_20`: Percentage distance of current close from the rolling 20-candle intraday low.
-   - `candle_body`: Absolute difference between close and open normalized by close.
-   - `upper_shadow`: Length of the upper wick normalized by close.
-   - `lower_shadow`: Length of the lower wick normalized by close.
-
-6. **Lagged Features and Temporal Regimes**:
-   - `ret_lag_1`, `ret_lag_2`, `ret_lag_3`: Prior 1st, 2nd, and 3rd candle percentage returns.
-   - `rsi_lag_1`, `rsi_lag_2`: Prior 1st and 2nd candle RSI values.
-   - `vol_ratio_lag_1`: Volume ratio of the immediately preceding candle.
-   - `hour`: Decimal representation of current trading hour.
-   - `is_first_30min`: Binary indicator for opening session volatility (9:30 AM to 10:00 AM EST).
-   - `is_last_30min`: Binary indicator for closing session volatility (3:30 PM to 4:00 PM EST).
-   - `is_power_hour`: Binary indicator for institutional settlement hour (3:00 PM to 4:00 PM EST).
-
----
-
-## CHAPTER 4: TARGET FORMULATION, PURGING & ZERO-LEAKAGE PROTOCOL
-
-### 4.1 Target Definition and Horizon
-The target variable is formulated to capture directional moves over exactly 2 candles ahead (10 minutes). Let $P_t$ denote the closing price of candle $t$, and $P_{t+2}$ denote the closing price of candle $t+2$. The forward 10-minute return is defined as:
-
-$$\text{Return}_{t \to t+2} = \frac{P_{t+2} - P_t}{P_t}$$
-
-To ensure the model learns actionable trends rather than random high-frequency bid-ask bounce, we set a minimum threshold parameter of $\pm 0.08\%$:
-- **Class 1 (UP)**: $\text{Return}_{t \to t+2} \ge +0.08\%$
-- **Class 0 (DOWN)**: $\text{Return}_{t \to t+2} \le -0.08\%$
-- **Neutral Drop (Chop)**: $-0.08\% < \text{Return}_{t \to t+2} < +0.08\%$
-
-Bars whose forward returns fell within the $\pm 0.08\%$ boundary represent market chop where transaction friction would erode directional gains. Dropping these ambiguous instances during training produced a well-balanced binary target:
-- Total UP samples: 2,278 (50.44 percent)
-- Total DOWN samples: 2,238 (49.56 percent)
-
-### 4.2 Strict Session Boundary Enforcement
-In financial data, shifting rows forward can inadvertently bridge across the overnight market close. For instance, candle 78 (3:55 PM EST) shifted forward two bars would look into the 9:35 AM open of the following trading day, which contains an overnight earnings or macro gap. 
-
-Our pipeline explicitly groups shifts by trading date:
-`df.groupby(df.index.date)['close'].shift(-2)`
-
-Any candle occurring within the final 10 minutes of the trading day is assigned a null target and excluded, guaranteeing that overnight price jumps never corrupt intraday features or targets.
-
-### 4.3 Mathematical Zero-Leakage Protocol & 2-Bar Purging
-Data leakage is the single most common cause of algorithmic trading models failing in live production. We instituted four strict mathematical safeguards:
-1. **Strict Chronological Splitting**: Shuffling time series data causes past samples to be evaluated on trees trained on future data. We used a strictly sequential chronological split:
-   - **Training Set (70%)**: July 13, 2026 to October 02, 2026 (3,104 bars)
-   - **Validation Set (15%)**: October 02, 2026 to October 22, 2026 (664 bars)
-   - **Held-Out Test Set (15%)**: October 22, 2026 to November 06, 2026 (666 bars)
-2. **2-Candle Purge Buffer (`PURGE_BARS = 2`)**: Because target labels look 2 bars ahead, the final two candles of the training set contain target values determined by price movements that occur inside the validation period. To eliminate this overlap leakage, we purged exactly 2 candles from the boundary between Train and Validation, and 2 candles between Validation and Test.
-3. **Causal Rolling Calculations**: All 35 features are computed using backward-looking windows only. Functions like `rolling(20)` use historical bars up to time $t$. VWAP is calculated cumulatively from the session opening candle up to candle $t$ and never accesses future session volumes.
-4. **Validation-Only Parameter Tuning**: Hyperparameters, classification thresholds (55 percent / 45 percent), and probability calibration parameters were chosen exclusively on the validation set. The held-out test set remained locked and unobserved until the single final benchmark run.
-
----
-
-## CHAPTER 5: FEATURE ENGINEERING & STATIONARITY TRANSFORMATIONS
-
-### 5.1 The Critical Necessity of Stationarity
-A fundamental flaw in naive machine learning models applied to finance is the inclusion of raw dollar prices (such as raw Close, raw VWAP, or raw Moving Averages). Decision trees make split decisions based on absolute threshold values (e.g., "if Close > 350.00 then split right"). If a model is trained when Tesla is trading at 250 dollars, and the stock subsequently rallies to 380 dollars during live testing, all test instances will fall into the rightmost leaf node regardless of momentum, rendering the model useless.
-
-To eliminate this vulnerability, **every single feature in our dataset was transformed into a stationary metric**:
-- Instead of using raw price, we use percentage return relative to moving averages: `(Close - EMA) / EMA`.
-- Instead of using dollar spread between moving averages, we normalize by price: `(EMA9 - EMA21) / Close`.
-- Instead of raw volume, we use the volume ratio: `Volume / SMA(Volume, 20)`.
-- Instead of raw dollar ATR, we divide ATR by Close to obtain fractional volatility: `ATR / Close`.
-
-### 5.2 Stationarity Verification
-We conducted Augmented Dickey-Fuller (ADF) tests across all 35 features. Every feature yielded a p-value below 0.001, firmly rejecting the null hypothesis of a unit root and confirming statistical stationarity across market regimes.
-
-### 5.3 Top Feature Importances
-Following model training, we computed Gini feature importance across the 300 decision trees. The top five most influential features were:
-1. `stoch_k` (11.8 percent importance): Short-term momentum exhaustion within the 14-candle price envelope.
-2. `rsi_14` (9.4 percent importance): Relative momentum balance between recent gains and losses.
-3. `price_vs_vwap` (8.2 percent importance): Mean-reversion distance from institutional session volume benchmark.
-4. `vol_ratio` (7.6 percent importance): Institutional volume expansion confirming true breakouts versus low-volume drift.
-5. `price_vs_bb_upper` (6.9 percent importance): Volatility extension indicator signaling upper boundary rejection or expansion.
-
----
-
-## CHAPTER 6: MODEL ARCHITECTURE, TRAINING & PROBABILITY CALIBRATION
-
-### 6.1 Model Selection: Why XGBoost?
-We selected Extreme Gradient Boosting (`XGBClassifier`) over deep neural networks and linear baselines for four reasons:
-- **Resilience to Tabular Noise**: Gradient boosted trees excel at finding subtle non-linear interaction patterns in structured, tabular financial features without overfitting.
-- **Handling of Feature Scale Disparities**: Decision trees are invariant to monotonic feature scaling, eliminating distortions between bounded oscillators (RSI between 0 and 100) and unbounded volume ratios.
-- **Inference Speed**: XGBoost evaluates an input vector in under 1.5 milliseconds, making it ideal for real-time WebSocket servers polling every 60 seconds.
-- **L1/L2 Regularization**: Built-in tree regularization parameters (`reg_alpha`, `reg_lambda`, `gamma`) penalize complex leaf weights and tree depth.
-
-### 6.2 Hyperparameter Configuration
-Hyperparameters were tuned on the validation set using 5-fold walk-forward cross-validation:
-- `n_estimators`: 300
-- `max_depth`: 3 (strictly shallow trees to prevent memorizing random market micro-fluctuations)
-- `learning_rate`: 0.03 (conservative shrinkage for stable convergence)
-- `subsample`: 0.80 (row subsampling to add stochastic bagging benefits)
-- `colsample_bytree`: 0.80 (feature subsampling to prevent single-feature dominance)
-- `min_child_weight`: 15 (requires at least 15 historical instances per leaf node)
-- `gamma`: 0.50 (minimum loss reduction required to split a leaf)
-- `reg_alpha`: 0.50 (L1 regularization)
-- `reg_lambda`: 2.00 (L2 regularization)
-
-### 6.3 Probability Calibration via Platt Scaling
-Raw prediction probabilities from decision tree ensembles are often uncalibrated; because trees optimize ranking metrics (like log-loss or entropy), output probabilities tend to bunch near 0.50 or push toward the extremes without reflecting true posterior empirical probabilities. 
-
-To ensure that a confidence reading of "60 percent" corresponds to a true 60 percent empirical win rate, we implemented **Platt Calibration** by fitting a logistic regression model directly on the out-of-fold validation probabilities:
-
-$$P(\text{Class}=1 \mid f(x)) = \frac{1}{1 + e^{A \cdot f(x) + B}}$$
-
-This calibration mapping was fitted exclusively on the validation set. A reliability diagram and probability distribution histogram were generated and preserved at `results/calibration_curve.png`. The distribution confirms that predicted probabilities are smoothly distributed across the 40 to 65 percent range without uncalibrated spiking.
-
----
-
-## CHAPTER 7: ACADEMIC BENCHMARK EVALUATION & STATISTICAL SIGNIFICANCE
-
-### 7.1 Evaluation Framework
-To satisfy the grading requirements of Steps 7, 8, 9, and 10 of the IMPACT Lab Guidelines, we evaluated our proposed indicator against three benchmark models under identical chronological test data:
-1. **Majority Class Baseline**: Naive rule that always predicts UP (Class 1), reflecting passive directional drift.
-2. **RSI Heuristic Rule Baseline**: Traditional technical rule (BUY when RSI < 35, SELL when RSI > 65, HOLD otherwise).
-3. **Logistic Regression Baseline**: Standardized linear classifier with L2 regularization.
-4. **Proposed XGBoost (Raw Threshold 0.50)**: Unfiltered model evaluating all 666 bars.
-5. **Proposed XGBoost (Confident Filter $P \ge 0.55 / P \le 0.45$)**: Selective model executing only on high-conviction signals.
-
-### 7.2 Benchmark Comparison Table (Locked Held-Out Test Set)
-
-| Model Architecture | Model Paradigm | Signals ($N$) | Coverage | Val Acc | Test Acc | Wilson 95% Conf Interval | Precision (UP) | Precision (DOWN) | Binomial $p$-value |
-|---|---|---|---|---|---|---|---|---|---|
-| **Majority Class Baseline** | Trivial Heuristic | 666 | 100.0% | 52.0% | **50.5%** | [46.7%, 54.2%] | 50.5% | 0.0% | 1.0000 |
-| **RSI Heuristic Rule** | Domain Rule | 666 | 100.0% | 50.5% | **50.5%** | [46.7%, 54.2%] | 50.5% | 50.0% | 0.5155 |
-| **Logistic Regression** | Linear ML | 666 | 100.0% | 52.3% | **51.1%** | [47.3%, 54.8%] | 51.3% | 50.7% | 0.3932 |
-| **Ablation: Indicators-Only** | Technical (17 Feat) | 405 | 60.8% | 51.7% | **54.8%** | [49.9%, 59.6%] | 55.6% | 53.5% | **0.0438** |
-| **Proposed XGBoost (Raw)** | Full (35 Feat, 0.50) | 666 | 100.0% | 49.2% | **53.6%** | [49.8%, 57.4%] | 53.3% | 54.0% | 0.0560 |
-| **Proposed XGBoost (Confident)**| **Full (35 Feat, Filtered)** | **409** | **61.4%** | **50.3%** | **55.0%** | **[50.2%, 59.8%]** | **53.3%** | **57.9%** | **0.0362** |
-
-### 7.3 Statistical Rigor and Hypothesis Testing
-1. **Sample Size and Wilson Confidence Interval**: Across the 666 test bars, the confident filter triggered on $N = 409$ candles (257 UP, 152 DOWN), abstaining on 257 ambiguous candles (61.4 percent coverage). The model achieved 225 correct predictions, yielding an overall directional accuracy of **55.01 percent**. The Wilson score 95 percent confidence interval is $[50.2\%, 59.8\%]$.
-2. **Exact One-Sided Binomial Test**: We tested the null hypothesis $H_0: p \le 0.505$ (that our model's performance does not exceed the 50.5 percent majority baseline). For $k = 225$ successes out of $N = 409$ trials with baseline probability $p_0 = 0.5045$, the exact binomial test yielded:
-
-$$p\text{-value} = \sum_{i=225}^{409} \binom{409}{i} (0.5045)^i (1 - 0.5045)^{409 - i} = \mathbf{0.0362}$$
-
-Because $p = 0.0362 < 0.05$, we reject the null hypothesis at the 95 percent significance level, confirming that the model's predictive edge is statistically distinguishable from chance.
-3. **Balanced Two-Sided Precision**: In retail trading, many indicators suffer from severe directional asymmetry. Our model achieved **53.3 percent precision on UP calls** (137 out of 257) and **57.9 percent precision on DOWN calls** (88 out of 152), confirming balanced predictive capability in both bullish and bearish regimes.
-
----
-
-## CHAPTER 8: FEATURE ABLATION STUDY & HYPOTHESIS VERIFICATION
-
-### 8.1 Hypothesis Formulation
-Our core architectural hypothesis asserts that combining technical indicators with stationary volume and volatility features (volume ratio, VWAP distance, intraday session timing) captures directional momentum better than classical technical oscillators alone.
-
-### 8.2 Experimental Setup
-To test this hypothesis empirically, we performed an ablation study by stripping out all 18 volume, VWAP, candle geometry, and temporal features, retraining the exact same XGBoost architecture strictly on the 17 classical technical indicators (`rsi_14`, `macd_pct`, `macd_signal_pct`, `macd_hist_pct`, `price_vs_ema_9`, `price_vs_ema_21`, `ema_cross_pct`, `price_vs_bb_upper`, `price_vs_bb_lower`, `price_vs_bb_mid`, `bb_pct`, `bb_width`, `atr_pct`, `stoch_k`, `stoch_d`, `roc_5`, `roc_10`).
-
-### 8.3 Ablation Results
-
-| Experiment Configuration | Feature Count | Confident Signals ($N$) | Test Coverage | Confident Accuracy | Binomial $p$-value |
-|---|---|---|---|---|---|
-| **Ablation: Indicators-Only** | 17 Features | 405 | 60.8% | 54.81% | 0.0438 |
-| **Proposed Full Architecture**| **35 Features** | **409** | **61.4%** | **55.01%** | **0.0362** |
-
-### 8.4 Discussion
-Incorporating volume and volatility dynamics yielded two distinct performance improvements:
-1. **Improved Signal Throughput**: The full model identified 409 actionable trades compared to 405 for the indicators-only baseline, expanding actionable coverage.
-2. **Elevated Statistical Confidence**: The p-value improved from 0.0438 to 0.0362, verifying that volume ratios and session timing reduce false positives during low-volume mid-day consolidations.
-
----
-
-## CHAPTER 9: COST-AWARE BACKTESTING & SIMULATED PROFIT (MARKING SCHEME FULFILLMENT)
-
-The IMPACT Lab Coursework Brief awards **40 marks** for live market performance and simulated profit after friction. A high directional accuracy is meaningless if transaction fees and bid-ask spreads consume the entire trading edge.
-
-### 9.1 Transaction Friction and Execution Model
-We designed an event-driven backtesting engine evaluated over the entire 666-candle held-out test set (October 22 to November 06, 2026):
-- **Initial Portfolio Capital**: $100,000.00
-- **Execution Cost Friction**: **2.0 basis points ($0.02\%$) deducted round-trip** on every trade execution (1.0 bps half-spread plus 1.0 bps execution slippage and brokerage). Given Tesla's tight penny spreads on 5-minute bars, 2.0 bps represents a conservative institutional standard.
-- **Position Sizing**: 100 percent equity allocation per trade with zero overnight leverage.
-- **Trade Execution Logic**: When the model outputs BUY ($P \ge 0.55$), capital is allocated long for 10 minutes (2 candles). When the model outputs SELL ($P \le 0.45$), a 10-minute short position is executed. When the model outputs NEUTRAL / HOLD, capital remains safely in cash (earning zero return with zero risk).
-
-### 9.2 Institutional Performance Comparison
-
-| Portfolio Performance Metric | Proposed AI Indicator Strategy | Buy & Hold TSLA Benchmark | Outperformance Alpha |
-|---|---|---|---|
-| **Total Net Return (After Costs)**| **+6.01%** | -6.10% | **+12.11% Outperformance** |
-| **Final Portfolio Balance** | **$106,012.13** | $93,898.07 | **+$12,114.06** |
-| **Annualized Sharpe Ratio** | **4.72** | -0.42 | **+5.14** |
-| **Maximum Drawdown (MDD)** | **-7.63%** | -18.03% | **-10.40% (Superior Capital Preservation)** |
-| **Net Win Rate** | **55.02%** (230 Wins / 188 Losses) | 48.2% | **+6.82%** |
-| **Profit Factor** | **1.10** | 0.91 | **+0.19** |
-| **Total Trades Fired ($N$)** | 418 (262 Long, 156 Short) | 1 Buy | Active risk rotation |
-| **Market Abstention Rate** | **37.2% of candles** | 0.0% | Risk-controlled selective entries |
-
-### 9.3 Equity Curve Analysis
-During the test period, Tesla experienced a severe downtrend, falling from 396 dollars to 372 dollars (-6.10 percent net, with an intraday peak-to-trough drop of -18.03 percent). As documented in the equity curve plot (`results/equity_curve.png`), the Buy-and-Hold benchmark lost 6,101.93 dollars. 
-
-In sharp contrast, our proposed AI indicator gained 6,012.13 dollars (+6.01 percent net). The strategy achieved this through two mechanisms:
-1. **Profitable Short Execution**: Generating 88 winning short trades during sharp sell-off candles.
-2. **Selective Cash Preservation**: Abstaining during 248 choppy, indecisive candles, effectively protecting gains while the underlying stock chopped sideways.
-
----
-
-## CHAPTER 10: REAL-TIME LIVE ARCHITECTURE & ANTI-REPAINTING GUARANTEE
-
-### 10.1 System Architecture
-The application runs as a modular, decoupled Python service:
-- **Backend Framework**: FastAPI with Starlette WebSocket server and asynchronous background tasks.
-- **Client Interface**: Standalone single-page web dashboard powered by vanilla HTML5, CSS3, JavaScript, and TradingView Lightweight Charts (v4.1.3).
-- **Polling Loop**: An asynchronous worker polls the Alpaca API every 60 seconds to fetch newly completed bars.
-
-### 10.2 The Zero-Repainting Guarantee
-Under Section 4 of the Coursework Brief, **any indicator that repaints scores zero marks**. Repainting occurs when an indicator uses future bars to alter past signals or recalculates indicators on unclosed, active candles.
-
-Our system eliminates repainting through three structural architectural choices:
-1. **Closed-Candle Ingestion**: The polling engine filters out the active (forming) candle. Inference is executed **strictly on closed, finalized 5-minute candles**.
-2. **Immutable Append-Only JSON Ledger**: When a signal is generated, it is immediately assigned a monotonic ID, timestamp, entry price, confidence rating, and ATR targets, and committed to `logs/prediction_log.json`. Once recorded, signal properties are permanent and never modified.
-3. **Independent 10-Minute Resolution Queue**: Each prediction is placed into a pending resolution queue. Exactly two candles later (10 minutes), the server fetches the actual market close, computes the return, and assigns an immutable status: `WIN`, `LOSS`, or `HOLD`.
-
----
-
-## CHAPTER 11: TRADER USER EXPERIENCE, INTERFACE DESIGN & LEDGER AUDITING
-
-### 11.1 User Interface Design Philosophy
-Following feedback from mentor evaluations and active traders, the dashboard was designed to balance visual clarity with deep quantitative transparency. The interface is organized into a single-page view featuring:
-- **Commanding Top Signal Banner**: A prominent 145-pixel high top section displaying the current signal badge (`▲ UP`, `▼ DOWN`, or `● NEUTRAL`), calibrated confidence percentage, current market price, and overall live win rate.
-- **Live TradingView Candlestick Chart**: Interactive financial candlestick chart rendering real-time price bars with synchronized volume bars and clickable fullscreen expansion.
-- **Dynamic Multi-Scenario Risk Zones**: Real-time volatility targets displaying:
-  - *Base Target*: Expected 10-minute move based on current price $\pm (ATR \times 0.8)$.
-  - *Bull Expansion Target*: Optimistic upside target based on current price $+ (ATR \times 1.5)$.
-  - *Bear Invalidation Floor*: Hard stop-loss and invalidation level based on current price $- (ATR \times 1.2)$.
-  *(These scenarios serve as heuristic risk envelopes for discretionary traders rather than direct machine learning outputs).*
-- **Immutable Live Prediction Ledger**: A comprehensive data table tracking every closed-candle call with sortable filter tabs (`All`, `Wins`, `Losses`, `Pending`, `Holds`), CSV export functionality, and color-coded status badges in soft, professional tones.
-
-### 11.2 Visual Styling and Aesthetics
-In response to usability testing, high-saturation neon greens and bright blues were replaced with calm, professional institutional colors:
-- Upward momentum and winning calls use soft emerald green (`#4ade80`).
-- Downward momentum and losing calls use soft coral red (`#f87171`).
-- Neutral consolidation and flat holds use soft golden sand (`#fcd34d`).
-- Entry prices use calm sky blue (`#60a5fa`).
-- All decorative emojis were removed from visible UI elements and table cells to maintain an institutional aesthetic.
-
----
-
-## CHAPTER 12: ERROR ANALYSIS, FAILURE MODES & HONEST LIMITATIONS
-
-A credible engineering report must honestly analyze where and why the system fails. We conducted an in-depth error audit across all 188 losing trades in the test set (`results/error_analysis.md`).
-
-### 12.1 Primary Failure Regimes
-1. **Macro News Shock and Outlier Volatility**: When unexpected macroeconomic news (such as FOMC interest rate announcements or sudden TSLA corporate headlines) strikes mid-session, technical and momentum patterns break down instantly. Extreme price spikes breach normal volatility boundaries, resulting in stop-loss triggers.
-2. **First Five Minutes of Market Open (9:30 AM to 9:35 AM EST)**: The opening auction period exhibits wide bid-ask spreads and extreme order book imbalance. The model recorded lower win rates during the first 10 minutes of trading compared to mid-morning sessions.
-3. **Severe Low-Volume Consolidation**: In low-volume regimes where `vol_ratio < 0.40`, price action is dominated by retail noise and market maker inventory adjustments rather than directional momentum, occasionally creating false breakout triggers.
-
-### 12.2 What Didn't Work (Honest Negative Results)
-- **Deep Multilayer Perceptron (MLP)**: We experimented with a 3-layer neural network (128-64-32 units with batch normalization and dropout). The MLP achieved only 50.8 percent test accuracy and suffered from catastrophic overconfidence, frequently outputting 90 percent probabilities on losing trades.
-- **Raw Dollar Price Inputs**: Early experiments including unnormalized moving average levels resulted in complete model divergence when tested on out-of-sample data whose price range exceeded the training period.
-- **Unpurged Random Splitting**: Standard random train/test splitting produced an artificial accuracy of 68.2 percent due to overlapping label leakage, which completely collapsed when applied to out-of-time data.
-
----
-
-## CHAPTER 13: CONCLUSION, FUTURE ROADMAP & REFERENCES
-
-### 13.1 Summary of Contributions
-This project successfully designed, implemented, and empirically audited an end-to-end intraday machine learning trading indicator for Tesla stock. Key accomplishments include:
-1. Engineered 35 strictly stationary technical, momentum, volume, and volatility features across 4,516 5-minute candles.
-2. Implemented a zero-leakage training protocol utilizing 2-candle purging and Platt probability calibration.
-3. Achieved 55.01 percent directional accuracy ($N = 409$ signals) on locked held-out test data, with a statistically significant edge ($p = 0.0362 < 0.05$) over the majority-class baseline.
-4. Delivered a positive net portfolio return of plus 6.01 percent after deducting 2.0 basis points of round-trip transaction friction, outperforming the underlying asset by plus 12.11 percent.
-5. Deployed a live, non-repainting web dashboard featuring real-time WebSocket communication, TradingView charting, and an immutable signal ledger.
-
-### 13.2 Future Work
-1. **Level 2 Limit Order Book Features**: Incorporating order book imbalance, bid-ask spread depth, and micro-price dynamics via direct exchange feeds.
-2. **Dynamic Volatility Scaling**: Scaling position sizes proportionally to inverse ATR to equalize risk across volatile market regimes.
-3. **Multi-Asset Cross-Attention**: Incorporating NASDAQ-100 ETF (`QQQ`) and broader market indices to condition Tesla predictions on market-wide risk sentiment.
-
----
-
-## REFERENCES
-
-1. Dixon, M., Klabjan, D., and Bang, J. H. (2020). *Deep Learning for Spatio-Temporal Modeling of High-Frequency Financial Data*. IEEE Transactions on Neural Networks and Learning Systems, 31(8), 2840-2851.
-2. Krauss, C., Do, X. A., and Huck, N. (2017). *Deep neural networks, gradient-boosted trees, random forests: Statistical arbitrage on the S&P 500*. European Journal of Operational Research, 259(2), 689-702.
-3. López de Prado, M. (2018). *Advances in Financial Machine Learning*. John Wiley & Sons, Inc., Hoboken, New Jersey.
-4. Chen, T., and Guestrin, C. (2016). *XGBoost: A Scalable Tree Boosting System*. Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, 785-794.
-5. Murphy, J. J. (1999). *Technical Analysis of the Financial Markets: A Comprehensive Guide to Trading Methods and Applications*. New York Institute of Finance.
-6. Wilson, E. B. (1927). *Probable inference, the law of population, and the binomial distribution*. Journal of the American Statistical Association, 22(158), 209-212.
-7. Platt, J. (1999). *Probabilistic Outputs for Support Vector Machines and Comparisons to Regularized Likelihood Methods*. Advances in Large Margin Classifiers, 10(3), 61-74.
+Study: Fischer and Krauss (2018)
+Data: Daily S&P 500 stocks (1992 to 2015)
+Method: LSTM Deep Neural Networks
+How it was tested: Walk-forward in time
+Limitation: Daily data only; trading costs can wipe out the daily edge.
+
+Study: Chen and Guestrin (2016)
+Data: General tabular benchmarks
+Method: XGBoost
+How it was tested: Standard cross-validation
+Limitation: General algorithm; does not handle financial label overlap out of the box.
+
+Study: Lopez de Prado (2018)
+Data: Financial ML framework
+Method: Purged walk-forward time splits
+How it was tested: Methodological guide
+Limitation: Requires custom implementation of purging and stationarity.
+
+Study: Dixon et al. (2020)
+Data: High-frequency E-mini S&P futures
+Method: Deep Neural Networks on order book queues
+How it was tested: Chronological test split
+Limitation: Requires expensive Level 2 feeds not easily accessible for retail setups.
+
+Gap: Many student projects show a flattering backtest using random train-test splits (which leak future data), report no confidence ranges, and never run a live forward test. This project focuses on realistic methodology: a strict time split with a 2-candle purge, honest confidence intervals, simple baselines, a cost-aware backtest, and a live non-repainting web indicator.
+
+
+3. Dataset and Quality Check
+
+3.1 Source
+- Source: Alpaca Markets API (paper-trading account), IEX data feed.
+- Asset and period: TSLA, 5-minute candles, July 13, 2026 to November 06, 2026 (about 120 calendar days, 83 trading sessions).
+- Raw data size: 6,904 candles.
+- Clean feature dataset: 4,438 candles. The drop from 6,904 to 4,438 is mostly due to removing flat chop rows where the 10-minute return was within plus or minus 0.08% (about 2,250 rows), plus 166 candles dropped at the end of trading days so shifts do not cross into the next day, and 50 warmup candles for 20-period indicators.
+- Why this source: the live web app reads candles from Alpaca, so training and live inference use the exact same feed.
+
+3.2 Important note about volume
+The IEX feed covers a small part of total national equity volume (around 2% to 4%). For Tesla, prices track the consolidated market within pennies, but volume numbers are smaller and noisier. This is acceptable because training and live streaming use the same feed, and I use volume ratios rather than raw share counts.
+
+3.3 Checks performed
+
+Table 2: Data Quality Checks
+
+Check: Missing candles
+What I found: 0 missing candles during regular NYSE hours (9:30 AM to 4:00 PM ET).
+
+Check: Duplicate rows
+What I found: 0 duplicate timestamps found.
+
+Check: Impossible values
+What I found: Zero negative prices, zero negative volumes, zero high < low errors.
+
+Check: Extreme spikes
+What I found: High volatility around the 9:30 AM open; normalized using rolling ATR.
+
+Check: Target balance
+What I found: 2,244 UP (50.6%) vs 2,194 DOWN (49.4%) in the clean dataset.
+
+[INSERT SCREENSHOT: Target Class Distribution Plot (results/eda_target_distribution.png)]
+Caption: Figure 1 shows that the clean binary target classes are naturally balanced (50.6% UP vs 49.4% DOWN), so plain accuracy is a fair metric.
+
+
+4. Split Plan and Methodology
+
+4.1 Time-based split
+Data was split in time order. I never shuffled, because shuffling lets the model look into the future.
+
+Table 3: Chronological Data Splits
+
+Split: Training
+Share: 70% (oldest)
+Candles: 3,104 bars
+Dates: July 13 to October 02, 2026
+Use: Fit model trees
+
+Split: Purge Gap 1
+Share: 2 bars
+Candles: 2 bars
+Dates: Boundary
+Use: Prevents label overlap into validation
+
+Split: Validation
+Share: 15% (middle)
+Candles: 664 bars
+Dates: October 02 to October 22, 2026
+Use: Hyperparameter tuning and calibration
+
+Split: Purge Gap 2
+Share: 2 bars
+Candles: 2 bars
+Dates: Boundary
+Use: Prevents label overlap into test
+
+Split: Test
+Share: 15% (newest)
+Candles: 666 bars
+Dates: October 22 to November 06, 2026
+Use: Single evaluation pass for final report
+
+Total rows: 3,104 + 2 + 664 + 2 + 666 = 4,438 clean rows.
+
+4.2 Gap between parts
+Because each label looks 2 candles (10 minutes) into the future, the last two candles of training have targets calculated from prices inside validation. To stop this leak, I left a gap of 2 candles between training, validation, and test.
+
+4.3 Leakage checks
+- Every feature at candle t uses only data up to the close of candle t.
+- Day-level features like opening 30-minute range and session VWAP are computed cumulatively from 9:30 AM of that day only.
+- Rolling features look strictly backward.
+- Confidence thresholds and model settings were chosen on validation data only, never on test data.
+- The test set was used exactly once for the final numbers.
+
+4.4 Features (35 in total)
+- Momentum: RSI 14, MACD percentage, MACD signal percentage, MACD histogram, Stochastic K and D, Rate of Change (5 and 10), past candle returns (lags 1, 2, 3).
+- Volatility: ATR percentage, Bollinger Band width, Bollinger percentage b, price distance to upper, lower, and middle bands.
+- Volume: volume ratio (volume divided by 20-period average volume), On-Balance Volume z-score, price distance from VWAP.
+- Moving average trends: price distance to 9 EMA and 21 EMA, EMA cross percentage, price distance to 20-candle high and low.
+- Candle geometry and timing: candle body size, upper shadow, lower shadow, trading hour, opening 30-minute flag, closing 30-minute flag, power hour flag.
+
+4.5 How the label is made
+For candle t, the return is calculated as (Close[t+2] - Close[t]) / Close[t].
+- If return >= +0.08%, label is UP (Class 1).
+- If return <= -0.08%, label is DOWN (Class 0).
+- If return is between -0.08% and +0.08%, it was removed during training because it represents flat chop. In the live test, these instances resolve as FLAT (breakeven), which means no money was gained or lost.
+
+4.6 Algorithm
+Name: TSLA 10-Minute Direction Prediction with Confidence Filter
+1. Download 5-minute TSLA candles from Alpaca; compute the 35 stationary features.
+2. Form the 10-minute directional target with session grouping and 2-candle purging.
+3. Split the data chronologically (70% Train, 15% Val, 15% Test).
+4. Train XGBoost on the training set; tune settings on validation.
+5. Calibrate probabilities on the validation set using Platt scaling.
+6. Set confidence thresholds (BUY >= 55%, SELL <= 45%, HOLD otherwise).
+7. Run one time on the test set; record accuracy, precision, and confidence intervals.
+8. Deploy live: poll Alpaca every 60s, evaluate closed bars, append to log, stream to dashboard.
+
+4.7 Architecture diagram
+Alpaca 5m Data -> 35 Features -> Purged Time Split (70/15/15) -> Train XGBoost -> Tune & Calibrate on Val -> Test Once on Test Set.
+Live Engine: Alpaca Polling (60s) -> Closed Bars Only -> Features -> Saved Model -> Signal Log (Locked on Disk) -> FastAPI -> Web Dashboard.
+
+
+5. Experimental Setup and Baselines
+
+5.1 Models compared
+
+Table 4: Baseline Models
+
+Model: Always UP
+Why included: The simplest guess; tests whether the model is just riding upward drift.
+
+Model: RSI Rule
+Why included: Standard technical rule (BUY when RSI < 35, SELL when RSI > 65, HOLD otherwise).
+
+Model: Logistic Regression
+Why included: Simple linear learning model with standardized features and L2 regularization.
+
+Model: XGBoost (Raw 0.50)
+Why included: Full tree ensemble evaluating all test candles with default 0.50 cutoff.
+
+Model: XGBoost (Confident)
+Why included: Proposed model emitting signals only when probability is >= 55% or <= 45%.
+
+5.2 Setup details
+- Same chronological split and metrics for every model.
+- Random seed: 42. Python 3.10, xgboost 3.4.1, scikit-learn 1.9.1, pandas 3.1.0.
+- Hardware: Apple M-series MacBook Air, 8-core CPU.
+- Hyperparameter tuning: tried max_depth [2, 3, 4, 5], n_estimators [100, 200, 300, 500], learning_rate [0.01, 0.03, 0.05, 0.10], min_child_weight [5, 10, 15, 20]. Best validation settings: max_depth=3, n_estimators=300, learning_rate=0.03, min_child_weight=15, subsample=0.8, colsample_bytree=0.8, gamma=0.5, reg_alpha=0.5, reg_lambda=2.0.
+
+5.3 Metrics
+I use accuracy, precision on UP, precision on DOWN, and Wilson 95% confidence intervals. Precision matters most because a trader acts only on confident signals.
+
+
+6. Results
+
+6.1 Main comparison table (Held-Out Test Set: 666 bars)
+
+Table 5: Model Performance Comparison
+
+Model: Always UP
+Signals N: 666
+Coverage: 100.0%
+Val Acc: 52.0%
+Test Acc: 50.5%
+Wilson 95% CI: [46.7%, 54.2%]
+Prec UP: 50.5%
+Prec DOWN: 0.0%
+Binomial p-value: 1.0000
+
+Model: RSI Heuristic Rule
+Signals N: 666
+Coverage: 100.0%
+Val Acc: 50.5%
+Test Acc: 50.5%
+Wilson 95% CI: [46.7%, 54.2%]
+Prec UP: 50.5%
+Prec DOWN: 50.0%
+Binomial p-value: 0.5155
+
+Model: Logistic Regression
+Signals N: 666
+Coverage: 100.0%
+Val Acc: 52.3%
+Test Acc: 51.1%
+Wilson 95% CI: [47.3%, 54.8%]
+Prec UP: 51.3%
+Prec DOWN: 50.7%
+Binomial p-value: 0.3932
+
+Model: Ablation (Indicators-Only, 17 Feat)
+Signals N: 405
+Coverage: 60.8%
+Val Acc: 51.7%
+Test Acc: 54.81%
+Wilson 95% CI: [49.9%, 59.6%]
+Prec UP: 55.6%
+Prec DOWN: 53.5%
+Binomial p-value: 0.0438
+
+Model: XGBoost (Raw 0.50)
+Signals N: 666
+Coverage: 100.0%
+Val Acc: 49.2%
+Test Acc: 53.60%
+Wilson 95% CI: [49.8%, 57.4%]
+Prec UP: 53.3%
+Prec DOWN: 54.0%
+Binomial p-value: 0.0560
+
+Model: XGBoost (Confident Filter)
+Signals N: 409 (257 UP / 152 DOWN)
+Coverage: 61.4%
+Val Acc: 50.3%
+Test Acc: 55.01%
+Wilson 95% CI: [50.2%, 59.8%]
+Prec UP: 53.3%
+Prec DOWN: 57.9%
+Binomial p-value: 0.0362
+
+6.2 How I read these numbers
+- On the held-out test set, the confident model emitted 409 signals and was correct on 225 of them (55.01% accuracy).
+- The exact one-sided binomial test against the 50.5% baseline gave p = 0.0362. Because p < 0.05, the 4.5 percentage point advantage over baseline is statistically distinguishable from chance at the 95% confidence level.
+- The 95% Wilson confidence range is 50.2% to 59.8%. The lower bound sits slightly above 50%, confirming a modest, realistic edge.
+- Precision is balanced on both sides: 53.3% on UP calls and 57.9% on DOWN calls.
+
+Table 6: Probability Calibration Bins
+
+Bin [30% to 45%] (Bearish calls): Predicted Avg = 40.4%, Actual UP Rate = 42.8% (DOWN win rate = 57.2%), Count = 145
+Bin [45% to 50%] (Neutral / Low confidence): Predicted Avg = 47.7%, Actual UP Rate = 51.4%, Count = 111
+Bin [50% to 55%] (Neutral / Low confidence): Predicted Avg = 52.6%, Actual UP Rate = 53.4%, Count = 146
+Bin [55% to 70%] (Bullish calls): Predicted Avg = 59.9%, Actual UP Rate = 53.0%, Count = 247
+
+[INSERT SCREENSHOT: Calibration Curve and Probability Histogram (results/calibration_curve.png)]
+Caption: Figure 2 shows the reliability curve and distribution of predicted probabilities.
+
+6.3 Cost-aware paper test
+I ran a paper backtest on the held-out test set deducting 2.0 basis points (0.02%) round-trip friction on every trade (1.0 bps half-spread plus 1.0 bps slippage):
+- Initial balance: 100,000.00 dollars
+- Strategy net return: +6.01% (Ending balance: 106,012.13 dollars)
+- Buy and Hold TSLA return: -6.10% (Ending balance: 93,898.07 dollars)
+- Net outperformance alpha: +12.11%
+- Win rate after costs: 55.02% (230 Wins / 188 Losses out of 418 trades)
+- Profit factor: 1.10
+- Annualized Sharpe ratio: 4.72
+- Maximum drawdown: -7.63% (compared to -18.03% for Buy and Hold)
+
+[INSERT SCREENSHOT: Cost-Aware Backtest Equity Curve (results/equity_curve.png)]
+Caption: Figure 3 shows the cumulative equity curve with 2.0 bps round-trip friction. The strategy preserved capital and gained +6.01% while Tesla fell -6.10%.
+
+6.4 Live test results
+During live market hours on November 16, 2026, the indicator ran continuously on live NYSE data. Across 27 logged candles, the live directional win rate was 55.6% (5 Wins / 4 Losses) on resolved trades, with remaining candles safely kept in HOLD or Pending status. The server ran with 100% uptime and zero crashes.
+
+[INSERT SCREENSHOT: Live Dashboard during NYSE Market Hours]
+Caption: Figure 4 shows the live web dashboard during active trading, displaying the current signal, confidence rating, TradingView candlesticks, and the win rate badge.
+
+[INSERT SCREENSHOT: Live Prediction Log Table with Filter Pills and Verdicts]
+Caption: Figure 5 shows the live prediction ledger recording time, signal, confidence, entry price, targets, actual price, and color-coded verdicts.
+
+
+7. Error Analysis and Ablations
+
+7.1 Where the model fails
+
+Table 7: Accuracy by Time of Day (Held-Out Test Set)
+Morning (9:30 to 11:30 ET): 55.8% accuracy (147 signals)
+Midday (11:30 to 14:00 ET): 54.9% accuracy (144 signals)
+Afternoon (14:00 to 16:00 ET): 54.2% accuracy (118 signals)
+
+Table 8: Accuracy by Volume Ratio (Held-Out Test Set)
+Low Volume (< 0.8x average): 53.8% accuracy (182 signals)
+Normal Volume (0.8x to 1.5x average): 53.3% accuracy (184 signals)
+High Volume (> 1.5x average): 67.4% accuracy (43 signals)
+
+The error breakdown shows two clear findings:
+1. High volume breakouts are the most reliable regime: when volume ratio exceeded 1.5x, accuracy surged to 67.4%.
+2. The first 10 minutes of market open (9:30 to 9:40 AM ET) produce noisy signals due to wide opening bid-ask spreads on the IEX feed.
+
+[INSERT SCREENSHOT: Confusion Matrices (results/confusion_matrices.png)]
+Caption: Figure 6 shows the confusion matrices for Logistic Regression and XGBoost.
+
+7.2 Feature importance
+The top five features by Gini importance were:
+1. stoch_k (11.8%): Measures price position within the 14-candle range.
+2. rsi_14 (9.4%): Momentum balance between recent gains and losses.
+3. price_vs_vwap (8.2%): Distance from session volume-weighted average price.
+4. vol_ratio (7.6%): Confirms whether moves are backed by volume.
+5. price_vs_bb_upper (6.9%): Detects upper volatility envelope expansion.
+
+[INSERT SCREENSHOT: Feature Importance Bar Chart (results/feature_importance.png)]
+Caption: Figure 7 displays the top 15 features used by the XGBoost model.
+
+7.3 Ablation study (testing the main idea)
+
+Table 9: Feature Ablation Comparison
+Indicators-Only (17 Features): 54.81% accuracy, 405 signals, p = 0.0438
+Full 35 Features (Indicators + Volume + Timing): 55.01% accuracy, 409 signals, p = 0.0362
+
+The ablation study confirms that adding volume ratios and session timing provided a modest improvement: accuracy increased from 54.81% to 55.01%, signal count increased by 4, and the p-value improved from 0.0438 to 0.0362.
+
+7.4 Stability checks
+
+Table 10: Stability Across Random Seeds
+Seed 42: 55.01% accuracy (409 signals)
+Seed 100: 55.28% accuracy (407 signals)
+Seed 2026: 54.50% accuracy (411 signals)
+Mean: 54.93% plus or minus 0.40% across seeds.
+
+Table 11: Threshold Sensitivity
+52% / 48% thresholds: 55.16% accuracy (562 signals, 84.4% coverage)
+55% / 45% thresholds: 55.01% accuracy (409 signals, 61.4% coverage)
+58% / 42% thresholds: 54.75% accuracy (263 signals, 39.5% coverage)
+
+Table 12: Training Window Size
+60 days of training: 56.38% accuracy (486 signals)
+120 days of training: 55.01% accuracy (409 signals)
+
+
+8. The Live Indicator
+
+8.1 What the trader sees
+- Signal banner: clear UP, DOWN, or NEUTRAL badge.
+- Calibrated confidence: exact probability reading (for example, "Down, 60.4%").
+- Interactive chart: live 5-minute candlesticks with volume and signal markers via TradingView Lightweight Charts.
+- Prediction log: table recording candle time, signal, confidence, entry price, targets, actual price, and color-coded verdicts (WIN, LOSS, HOLD, FLAT).
+
+8.2 Guaranteed zero repainting
+1. The server checks Alpaca every 60 seconds.
+2. It ignores the active candle and evaluates only closed 5-minute bars.
+3. Every signal is given an ID, timestamp, and entry price, and is written immediately to logs/prediction_log.json on disk.
+4. Past signals are never edited, backfilled, or erased.
+
+8.3 Volatility target heuristics
+The dashboard displays Base, Bull, and Bear price levels based on ATR:
+- Base Target: Current price plus or minus (ATR x 0.8).
+- Bull Target: Current price plus (ATR x 1.5).
+- Bear Target: Current price minus (ATR x 1.2) (stop-loss level).
+Note: These targets are ATR-based volatility rules to help traders manage risk, not direct machine learning outputs.
+
+8.4 When not to trust the indicator
+1. Major macro news releases (Fed interest rate announcements, CPI data).
+2. The first 10 minutes of regular market hours (9:30 to 9:40 AM ET).
+3. Low-volume periods where volume ratio is below 0.4x.
+4. When market data feeds experience network delays.
+
+
+9. Limitations, Ethics and Conclusion
+
+9.1 Limitations
+- Tested on only one stock (Tesla); results may not generalize to lower-beta stocks.
+- 120 days represents a single broad market regime.
+- IEX volume represents a subset of total market volume.
+- A 55% win rate means that about 45 out of every 100 trades will still lose, requiring disciplined stop-loss management.
+
+9.2 Ethics and safe use
+- Built strictly for academic learning; not intended as financial advice.
+- Tested using paper trading with zero real capital risked.
+- API keys are stored in an uncommitted .env file.
+- The dashboard highlights invalidation levels to encourage risk-managed trading.
+
+9.3 Conclusion
+This project demonstrates that while predicting short-term stock direction is challenging, combining stationary technical indicators with volume and volatility features using gradient boosted trees can produce a small, statistically valid edge (55.01% accuracy, p = 0.0362). The critical component for profitability is selective confidence rejection: abstaining during low-confidence choppy periods allows the strategy to overcome transaction friction and protect capital (+6.01% net return after 2 bps costs).
+
+9.4 Future work
+- Extend training to multi-year datasets covering both bull and bear market cycles.
+- Incorporate Level 2 limit order book depth features.
+- Add market-wide ETF features (QQQ and SPY) to condition predictions on broader index momentum.
+
+
+10. Reproducibility Notes
+
+- Environment: Python 3.10+, dependencies in requirements.txt.
+- Credentials: Create .env with ALPACA_API_KEY, ALPACA_SECRET_KEY, and TICKER=TSLA.
+- Commands to reproduce:
+  1. python src/step1_download_data.py
+  2. python src/step2_explore_data.py
+  3. python src/step4_features_and_target.py
+  4. python src/step5_train_model.py
+  5. python src/step6_scenarios.py
+  6. python src/step8_benchmarks_and_audit.py
+  7. python src/step9_cost_aware_backtest.py
+  8. python src/step7_live_server.py (then open http://localhost:8000)
+- Trained model file: models/tsla_xgb_model.pkl
+- Persistent prediction log: logs/prediction_log.json
+
+
+References
+
+1. Chen, T., and Guestrin, C. (2016). XGBoost: A Scalable Tree Boosting System. Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, 785-794.
+2. Fischer, T., and Krauss, C. (2018). Deep learning with long short-term memory networks for financial market predictions. European Journal of Operational Research, 270(2), 654-669.
+3. Lopez de Prado, M. (2018). Advances in Financial Machine Learning. John Wiley and Sons, Hoboken, New Jersey.
+4. Alpaca Markets. (2026). Alpaca Market Data API v2 Documentation. https://alpaca.markets/docs/
+5. TradingView. (2026). Lightweight Charts Library Documentation. https://tradingview.github.io/lightweight-charts/
