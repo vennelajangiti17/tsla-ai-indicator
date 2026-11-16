@@ -2,18 +2,17 @@
 =============================================================
 Phase 1 | Step 4: Stationary Feature Engineering & Target
 =============================================================
-Major Improvements Addressing Rigorous Quant Review:
-  1. SESSION-AWARE TARGET:
+Major Improvements:
+  1. REGULAR MARKET HOURS FILTER:
+     - Strictly filtered to 09:30 to 15:55 EST (NYSE regular session).
+     - Completely eliminates thin, erratic pre-market & after-hours data.
+  2. SESSION-AWARE TARGET:
      - Grouped by trading date (NEVER crosses overnight boundaries).
-     - Verified exact 10.0-minute horizon (drops gaps/halts).
-     - Move threshold: +/- 0.08% (drops flat noise).
-  2. 100% STATIONARY FEATURES:
-     - No raw price levels (no raw Close, EMA, BB dollar levels).
+     - Verified exact 10.0-minute horizon.
+     - Move threshold: +/- 0.08% (separates directional moves from chop).
+  3. 100% STATIONARY FEATURES:
      - All prices converted to percentage returns, distances (% vs EMA, % vs BB).
-     - OBV converted to rolling 20-candle z-score (identical scale in live buffer vs train).
-     - Volatility normalized as % of price (ATR%).
-  3. DATA INTEGRITY:
-     - Strict chronological ordering.
+     - Rolling 20-candle OBV Z-score (scale-free).
 =============================================================
 """
 
@@ -40,7 +39,14 @@ def load_data():
         df.index = df.index.tz_localize("UTC")
     df.index = df.index.tz_convert("America/New_York")
     df = df.sort_index()
-    print(f"  Loaded {len(df):,} candles from {CSV_PATH}")
+
+    # CRITICAL: Filter strictly to Regular Market Hours (09:30 to 15:55 EST)
+    before_filter = len(df)
+    df = df.between_time('09:30', '15:55')
+    after_filter = len(df)
+    print(f"  Loaded {before_filter:,} total candles.")
+    print(f"  Filtered to Regular Market Hours (09:30 - 15:55 EST): {after_filter:,} candles ({before_filter - after_filter} extended-hour bars removed)")
+
     return df
 
 def add_target(df: pd.DataFrame) -> pd.DataFrame:
@@ -65,7 +71,6 @@ def add_target(df: pd.DataFrame) -> pd.DataFrame:
     
     df.loc[valid_mask & (df['future_pct_change'] >  MIN_MOVE_PCT), 'target'] = 1
     df.loc[valid_mask & (df['future_pct_change'] < -MIN_MOVE_PCT), 'target'] = 0
-    # All other rows stay NaN and will be dropped in clean_features
 
     up_count   = (df['target'] == 1).sum()
     down_count = (df['target'] == 0).sum()
@@ -73,7 +78,7 @@ def add_target(df: pd.DataFrame) -> pd.DataFrame:
 
     print(f"    UP   (1) : {up_count:,} ({up_count/(up_count+down_count)*100:.1f}%)")
     print(f"    DOWN (0) : {down_count:,} ({down_count/(up_count+down_count)*100:.1f}%)")
-    print(f"    Flat / Gap / End-of-Day (Dropped): {dropped:,}")
+    print(f"    Flat / Gap / End-of-Day: {dropped:,}")
 
     return df
 
@@ -85,9 +90,8 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     open_p = df['Open']
     volume = df['Volume']
 
-    # ── 1. TREND (Stationary % Distances & Oscillators) ──
+    # 1. Trend
     df['rsi_14'] = ta.momentum.RSIIndicator(close, window=14).rsi()
-    
     macd_obj = ta.trend.MACD(close, window_slow=26, window_fast=12, window_sign=9)
     df['macd_pct']        = (macd_obj.macd() / close) * 100.0
     df['macd_signal_pct'] = (macd_obj.macd_signal() / close) * 100.0
@@ -99,7 +103,7 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df['price_vs_ema_21'] = (close - ema_21) / ema_21 * 100.0
     df['ema_cross_pct']   = (ema_9 - ema_21) / ema_21 * 100.0
 
-    # ── 2. VOLATILITY (Normalized) ──
+    # 2. Volatility
     bb = ta.volatility.BollingerBands(close, window=20, window_dev=2)
     bb_upper = bb.bollinger_hband()
     bb_lower = bb.bollinger_lband()
@@ -111,21 +115,20 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df['bb_width']          = bb.bollinger_wband()
     
     atr_14 = ta.volatility.AverageTrueRange(high, low, close, window=14).average_true_range()
-    df['atr_pct'] = (atr_14 / close) * 100.0   # ATR as % of current price
+    df['atr_pct'] = (atr_14 / close) * 100.0
 
-    # ── 3. MOMENTUM ──
+    # 3. Momentum
     stoch = ta.momentum.StochasticOscillator(high, low, close, window=14, smooth_window=3)
     df['stoch_k'] = stoch.stoch()
     df['stoch_d'] = stoch.stoch_signal()
     df['roc_5']   = ta.momentum.ROCIndicator(close, window=5).roc()
     df['roc_10']  = ta.momentum.ROCIndicator(close, window=10).roc()
 
-    # ── 4. VOLUME & LIQUIDITY (Rolling & Scale-Free) ──
+    # 4. Volume & Liquidity
     vol_sma_10      = volume.rolling(10).mean()
     df['vol_ratio'] = volume / (vol_sma_10 + 1e-8)
     
-    # Rolling Z-score of OBV over 20 candles (prevents infinite accumulation divergence)
-    raw_obv = ta.volume.OnBalanceVolumeIndicator(close, volume).on_balance_volume()
+    raw_obv  = ta.volume.OnBalanceVolumeIndicator(close, volume).on_balance_volume()
     obv_mean = raw_obv.rolling(20).mean()
     obv_std  = raw_obv.rolling(20).std() + 1e-8
     df['obv_zscore'] = (raw_obv - obv_mean) / obv_std
@@ -134,20 +137,19 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     vwap_approx   = (typical_price * volume).rolling(20).sum() / (volume.rolling(20).sum() + 1e-8)
     df['price_vs_vwap'] = (close - vwap_approx) / vwap_approx * 100.0
 
-    # ── 5. TIME & MICROSTRUCTURE ──
+    # 5. Time & Microstructure
     df['hour']           = df.index.hour + df.index.minute / 60.0
     df['is_first_30min'] = ((df.index.hour == 9)  & (df.index.minute >= 30)).astype(int)
     df['is_last_30min']  = ((df.index.hour == 15) & (df.index.minute >= 30)).astype(int)
     df['is_power_hour']  = (df.index.hour == 15).astype(int)
 
-    # ── 6. PRICE ACTION PATTERNS & RETURNING LAGS ──
+    # 6. Price Action & Lags
     df['price_vs_high_20'] = (close - high.rolling(20).max()) / close * 100.0
     df['price_vs_low_20']  = (close - low.rolling(20).min())  / close * 100.0
     df['candle_body']      = (close - open_p) / open_p * 100.0
     df['upper_shadow']     = (high - np.maximum(open_p, close)) / close * 100.0
     df['lower_shadow']     = (np.minimum(open_p, close) - low) / close * 100.0
 
-    # Percentage returns for past candles (NOT raw prices!)
     df['ret_lag_1'] = close.pct_change(1) * 100.0
     df['ret_lag_2'] = close.pct_change(2) * 100.0
     df['ret_lag_3'] = close.pct_change(3) * 100.0
@@ -155,26 +157,22 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df['rsi_lag_2'] = df['rsi_14'].shift(2)
     df['vol_ratio_lag_1'] = df['vol_ratio'].shift(1)
 
-    drop_non_features = [
+    drop_cols = [
         'Open','High','Low','Close','Volume',
         'future_close','future_time','future_pct_change','target'
     ]
-    feature_cols = [c for c in df.columns if c not in drop_non_features]
+    feature_cols = [c for c in df.columns if c not in drop_cols]
     print(f"  Total stationary features: {len(feature_cols)}")
     return df
 
 def clean_and_save(df: pd.DataFrame):
     before = len(df)
-    # Drop rows where target is NaN (flats, gaps, end of days)
     df = df.dropna(subset=['target'])
-    # Drop indicator warmup rows
     df = df.dropna()
     after = len(df)
-    print(f"\n  Rows before cleanup : {before:,}")
-    print(f"  Clean ML rows       : {after:,}  ({before - after} dropped)")
-    
+    print(f"\n  Clean ML rows (Regular Hours only): {after:,}  (dropped {before - after} warmup & flat rows)")
     df.to_csv(OUT_PATH)
-    print(f"  Saved clean stationary dataset to: {OUT_PATH}")
+    print(f"  Saved to: {OUT_PATH}")
     return df
 
 if __name__ == "__main__":

@@ -5,15 +5,16 @@
 - **Asset**: Tesla, Inc. (`NASDAQ: TSLA`)
 - **Data Source**: Alpaca Markets Historical Data API (IEX Feed)
 - **Timeframe**: 5-Minute OHLCV candles
-- **Observation Period**: 2026-07-13 to 2026-11-06
-- **Total Valid Observations**: 4,516 clean candles
+- **Session Filter**: **Regular Market Hours Only (09:30 to 15:55 EST)**. Pre-market and after-hours bars removed to eliminate illiquid spread noise.
+- **Observation Period**: 2026-07-13 to 2026-11-06 (approx. 83 regular trading sessions)
+- **Total Valid Observations**: 4,438 clean candles
 - **Missing Values**: 0
 - **Duplicate Timestamps**: 0
-- **Horizon & Target**: Exactly 10 minutes (2 candles) ahead, within same trading session.
+- **Horizon & Target**: Exactly 10 minutes (2 candles) ahead, within same regular session.
   - Direction threshold: $\pm 0.08\%$
-  - Class 1 (UP): 2,292 (50.75%)
-  - Class 0 (DOWN): 2,224 (49.25%)
-  - Balance: Well-balanced 50/50 distribution.
+  - Class 1 (UP): 2,244 (50.56%)
+  - Class 0 (DOWN): 2,194 (49.44%)
+  - Balance: Balanced 50/50 distribution.
 
 ## 2. Stationary Feature Dictionary (35 Features)
 All features are 100% stationary (percentage returns, distances, and oscillators). Zero raw dollar price levels are used.
@@ -55,8 +56,3 @@ All features are 100% stationary (percentage returns, distances, and oscillators
 | 33 | `rsi_lag_1` | Autoregressive | RSI 1 candle ago |
 | 34 | `rsi_lag_2` | Autoregressive | RSI 2 candles ago |
 | 35 | `vol_ratio_lag_1` | Volume | Volume ratio 1 candle ago |
-
-## 3. Data Leakage Prevention Protocol
-1. **Chronological Splitting**: Chronological order strictly preserved (Train: 70%, Val: 15%, Test: 15%).
-2. **Session Boundary Guard**: Target computation uses `groupby(df.index.date)`. Shifting never looks into the next day.
-3. **Exact Time-Span Enforcement**: Horizon strictly required to be exactly 10.0 minutes. In-between gap candles are dropped.
