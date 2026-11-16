@@ -51,9 +51,14 @@ def download_historical_data():
 
     client = StockHistoricalDataClient(API_KEY, SECRET_KEY)
 
-    # Download last 120 days (6 months — more market conditions = better model)
-    end_date   = datetime.now()
-    start_date = end_date - timedelta(days=120)
+    # Fixed reproducible date range for benchmark reproduction (July 1, 2026 to Nov 6, 2026)
+    # Pass --live as argument if you wish to download up to current datetime
+    if len(sys.argv) > 1 and sys.argv[1] == "--live":
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=120)
+    else:
+        start_date = datetime(2026, 7, 1)
+        end_date   = datetime(2026, 11, 6)
 
     print(f"\n  Requesting 5-minute bars for {TICKER}...")
     print(f"  Date range: {start_date.strftime('%Y-%m-%d')} → {end_date.strftime('%Y-%m-%d')}")

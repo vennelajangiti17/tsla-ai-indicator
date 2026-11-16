@@ -59,8 +59,7 @@ def load_model_and_data():
 #  — calibration makes them more honest)
 # ─────────────────────────────────────────────
 def calibrate_model(model, feature_cols, df):
-    from sklearn.calibration import CalibratedClassifierCV
-    from sklearn.model_selection import train_test_split
+    from sklearn.linear_model import LogisticRegression
 
     n = len(df)
     train_end = int(n * 0.70)
@@ -71,14 +70,15 @@ def calibrate_model(model, feature_cols, df):
 
     print(f"\n  Calibrating probabilities on {len(X_val)} validation rows...")
 
-    # Platt Scaling (sigmoid calibration) — wraps around existing model
-    calibrated = CalibratedClassifierCV(model, method='sigmoid', cv='prefit')
-    calibrated.fit(X_val, y_val)
+    # Platt Scaling (sigmoid calibration) via 1D Logistic Regression
+    val_raw_probs = model.predict_proba(X_val)[:, 1].reshape(-1, 1)
+    calibrated = LogisticRegression()
+    calibrated.fit(val_raw_probs, y_val)
 
     # Compare raw vs calibrated on a sample
     sample_X = X_val.head(5)
     raw_probs  = model.predict_proba(sample_X)[:, 1]
-    cal_probs  = calibrated.predict_proba(sample_X)[:, 1]
+    cal_probs  = calibrated.predict_proba(raw_probs.reshape(-1, 1))[:, 1]
 
     print(f"\n  Raw vs Calibrated probabilities (sample):")
     print(f"  {'Raw':<10} {'Calibrated':<12} {'Difference'}")

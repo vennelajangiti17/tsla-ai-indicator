@@ -1,11 +1,13 @@
-# Git should NEVER track these sensitive or auto-generated files
+# Ignore secrets and environment
 .env
 venv/
 __pycache__/
 *.pyc
-*.pkl
 *.log
-data/*.csv
-data/*.parquet
-data/*.png
 .DS_Store
+
+# Allow tracking the serialized model package for easy mentor grading
+!models/tsla_xgb_model.pkl
+
+# Allow tracking features dataset for reproduction
+!data/tsla_features.csv

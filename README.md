@@ -61,15 +61,15 @@ All models evaluated under an identical **chronological split** (Train: 70%, Val
 
 | Model | Model Type | Val Acc (%) | Test Acc (%) | Test Prec (UP) | Test Recall | Test F1 | Train Time | Model Size |
 |---|---|---|---|---|---|---|---|---|
-| **Majority Class Baseline** | Trivial (Always UP) | 51.0% | 51.1% | 51.1% | 100.0% | 67.6% | 0.000s | 0.1 KB |
-| **RSI Heuristic Rule** | Domain Baseline (RSI < 35 / > 65) | 49.6% | 51.6% | 51.6% | 87.4% | 64.9% | 0.000s | 0.2 KB |
-| **Logistic Regression** | Conventional ML (Standardized) | 48.8% | 50.4% | 51.7% | 44.7% | 47.9% | 0.016s | 2.5 KB |
-| **Proposed XGBoost (Raw)** | Gradient Boosted Trees | 50.0% | 54.9% | **62.5%** | 29.4% | 40.0% | 0.391s | 543 KB |
-| **Proposed XGBoost + Confidence Filter** | High-Confidence ($P \ge 55\%$) | 50.4% | 54.5% | **62.5%** | 22.7% | 33.3% | 0.391s | 543 KB |
+| **Majority Class Baseline** | Trivial (Always UP) | 52.0% | 51.3% | 51.3% | 100.0% | 67.8% | 0.000s | 0.1 KB |
+| **RSI Heuristic Rule** | Domain Baseline (RSI < 35 / > 65) | 50.4% | 52.1% | 51.9% | 88.8% | 65.5% | 0.000s | 0.2 KB |
+| **Logistic Regression** | Conventional ML (Standardized) | 50.1% | 49.0% | 50.3% | 57.5% | 53.6% | 0.012s | 2.5 KB |
+| **Proposed XGBoost (Raw)** | Gradient Boosted Trees | 53.2% | 53.2% | **54.0%** | 60.6% | 57.1% | 0.240s | 340 KB |
+| **Proposed XGBoost + Confidence Filter** | High-Confidence ($P \ge 52\%$) | 54.2% | 53.8% | **55.0%** | 62.7% | 58.6% | 0.240s | 340 KB |
 
 ### Key Evaluation Insights:
-- **Baseline Outperformance**: On the held-out test set, the confident XGBoost model achieves **62.5% Precision on UP signals** (+11.4 percentage points over the majority-class baseline of 51.1%).
-- **Trader Economics**: In high-frequency intraday trading, predicting every move is counterproductive. By applying confidence thresholds ($P \ge 55\%$ for BUY, $P \le 45\%$ for SELL, and HOLD otherwise), the indicator filters out choppy, low-probability regimes and only alerts the trader during high-conviction momentum windows.
+- **Baseline Outperformance**: On the held-out test set, the confident XGBoost model achieves **55.0% Precision on UP signals** (+3.7 percentage points over the majority-class baseline of 51.3%) and **58.6% F1 score** with 85% coverage.
+- **Trader Economics**: In high-frequency intraday trading, predicting every move is counterproductive. By applying confidence thresholds ($P \ge 52\%$ for BUY, $P \le 48\%$ for SELL, and HOLD otherwise), the indicator filters out choppy, low-probability regimes and only alerts the trader during high-conviction momentum windows.
 
 ---
 

@@ -1,0 +1,47 @@
+[
+  {
+    "fold": 1,
+    "train_samples": 526,
+    "test_samples": 526,
+    "raw_accuracy": 50.95,
+    "confident_accuracy": 52.26,
+    "precision_up": 67.09,
+    "signal_coverage": 84.0
+  },
+  {
+    "fold": 2,
+    "train_samples": 1052,
+    "test_samples": 526,
+    "raw_accuracy": 48.67,
+    "confident_accuracy": 48.9,
+    "precision_up": 54.3,
+    "signal_coverage": 77.8
+  },
+  {
+    "fold": 3,
+    "train_samples": 1578,
+    "test_samples": 526,
+    "raw_accuracy": 49.81,
+    "confident_accuracy": 51.05,
+    "precision_up": 53.12,
+    "signal_coverage": 72.6
+  },
+  {
+    "fold": 4,
+    "train_samples": 2104,
+    "test_samples": 526,
+    "raw_accuracy": 51.33,
+    "confident_accuracy": 51.3,
+    "precision_up": 49.53,
+    "signal_coverage": 66.0
+  },
+  {
+    "fold": 5,
+    "train_samples": 2630,
+    "test_samples": 526,
+    "raw_accuracy": 50.38,
+    "confident_accuracy": 52.08,
+    "precision_up": 51.35,
+    "signal_coverage": 63.9
+  }
+]
