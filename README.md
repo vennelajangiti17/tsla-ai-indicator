@@ -33,6 +33,12 @@ How our methodology compares to seminal intraday quantitative machine learning l
 ```
 tsla_ai_indicator/
 │
+├── JangitiVennela_2401CS27.pdf      ← FINAL PROJECT POSTER (Official 1-Page PDF)
+├── MLproject_report.pdf             ← FINAL PROJECT REPORT (Official 15-Page PDF)
+├── FINAL_PROJECT_REPORT.md          ← Complete Report Markdown Source
+├── tsla_indicator_poster.pptx       ← Editable PowerPoint Poster (Mentor Template)
+├── PROJECT_POSTER.md                ← Poster Content & Section Mapping
+│
 ├── .env.example                     ← Template for Alpaca API credentials
 ├── requirements.txt                 ← Exact python environment dependencies
 ├── NOTES.md                         ← Ongoing experiment log & audit trail
