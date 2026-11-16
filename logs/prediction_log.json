@@ -26,7 +26,7 @@
     "vol_note": "\ud83d\udd07 Low volume (0.0x avg) \u2014 narrow consolidation range",
     "actual_price": 385.38,
     "correct": null,
-    "status": "HOLD (+$0.42)",
+    "status": "\ud83d\udfe1 HOLD (+$0.42)",
     "logged_at": "13:44:00",
     "id": 1,
     "candles_passed": 2
@@ -58,7 +58,7 @@
     "vol_note": "\ud83d\udd07 Low volume (0.0x avg) \u2014 narrow consolidation range",
     "actual_price": 387.44,
     "correct": false,
-    "status": "LOSS (+$1.85)",
+    "status": "\u274c (+$1.85)",
     "logged_at": "13:50:07",
     "id": 2,
     "candles_passed": 2
@@ -90,7 +90,7 @@
     "vol_note": "\ud83d\udd07 Low volume (0.0x avg) \u2014 narrow consolidation range",
     "actual_price": null,
     "correct": null,
-    "status": "Pending (10m)",
+    "status": "\u23f3 (Waiting 10m)",
     "logged_at": "13:55:12",
     "id": 3,
     "candles_passed": 1
@@ -122,7 +122,7 @@
     "vol_note": "\ud83d\udd07 Low volume (0.0x avg) \u2014 narrow consolidation range",
     "actual_price": null,
     "correct": null,
-    "status": "Pending (10m)",
+    "status": "\u23f3 (Waiting 10m)",
     "logged_at": "14:20:45",
     "id": 4,
     "candles_passed": 0
@@ -154,7 +154,7 @@
     "vol_note": "\u26a1 Volume spike (2.9x avg) \u2014 breakout potential elevated",
     "actual_price": 386.01,
     "correct": true,
-    "status": "WIN (+$2.51)",
+    "status": "\u2705 (+$2.51)",
     "logged_at": "14:35:55",
     "id": 5,
     "candles_passed": 2
@@ -186,7 +186,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 382.03,
     "correct": false,
-    "status": "LOSS (-$6.28)",
+    "status": "\u274c (-$6.28)",
     "logged_at": "14:40:00",
     "id": 6,
     "candles_passed": 2
@@ -218,7 +218,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 379.9,
     "correct": false,
-    "status": "LOSS (-$6.11)",
+    "status": "\u274c (-$6.11)",
     "logged_at": "14:45:06",
     "id": 7,
     "candles_passed": 2
@@ -250,7 +250,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 378.56,
     "correct": null,
-    "status": "HOLD (-$3.47)",
+    "status": "\ud83d\udfe1 HOLD (-$3.47)",
     "logged_at": "14:50:13",
     "id": 8,
     "candles_passed": 2
@@ -282,7 +282,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 378.47,
     "correct": null,
-    "status": "HOLD (-$1.43)",
+    "status": "\ud83d\udfe1 HOLD (-$1.43)",
     "logged_at": "14:55:20",
     "id": 9,
     "candles_passed": 2
@@ -314,7 +314,7 @@
     "vol_note": "Volume is normal",
     "actual_price": null,
     "correct": null,
-    "status": "Pending (10m)",
+    "status": "\u23f3 (Waiting 10m)",
     "logged_at": "15:00:26",
     "id": 10,
     "candles_passed": 1
@@ -346,7 +346,7 @@
     "vol_note": "\ud83d\udd07 Low volume (0.4x avg) \u2014 narrow consolidation range",
     "actual_price": null,
     "correct": null,
-    "status": "Pending (10m)",
+    "status": "\u23f3 (Waiting 10m)",
     "logged_at": "15:36:46",
     "id": 11,
     "candles_passed": 0
@@ -378,7 +378,7 @@
     "vol_note": "Volume is normal",
     "actual_price": null,
     "correct": null,
-    "status": "Pending (10m)",
+    "status": "\u23f3 (Waiting 10m)",
     "logged_at": "15:40:31",
     "id": 12,
     "candles_passed": 1
@@ -410,7 +410,7 @@
     "vol_note": "Volume is normal",
     "actual_price": null,
     "correct": null,
-    "status": "Pending (10m)",
+    "status": "\u23f3 (Waiting 10m)",
     "logged_at": "15:45:37",
     "id": 13,
     "candles_passed": 0
@@ -442,7 +442,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 381.45,
     "correct": true,
-    "status": "WIN (+$0.64)",
+    "status": "\u2705 (+$0.64)",
     "logged_at": "15:50:25",
     "id": 14,
     "candles_passed": 2
@@ -474,7 +474,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 382.2,
     "correct": true,
-    "status": "WIN (+$1.45)",
+    "status": "\u2705 (+$1.45)",
     "logged_at": "15:55:31",
     "id": 15,
     "candles_passed": 2
@@ -506,7 +506,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 382.29,
     "correct": true,
-    "status": "WIN (+$0.84)",
+    "status": "\u2705 (+$0.84)",
     "logged_at": "16:00:37",
     "id": 16,
     "candles_passed": 2
@@ -538,7 +538,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 380.36,
     "correct": null,
-    "status": "HOLD (-$1.84)",
+    "status": "\ud83d\udfe1 HOLD (-$1.84)",
     "logged_at": "16:05:43",
     "id": 17,
     "candles_passed": 2
@@ -570,7 +570,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 381.44,
     "correct": false,
-    "status": "LOSS (-$0.85)",
+    "status": "\u274c (-$0.85)",
     "logged_at": "16:10:49",
     "id": 18,
     "candles_passed": 2
@@ -602,7 +602,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 381.51,
     "correct": null,
-    "status": "HOLD (+$1.15)",
+    "status": "\ud83d\udfe1 HOLD (+$1.15)",
     "logged_at": "16:15:55",
     "id": 19,
     "candles_passed": 2
@@ -634,7 +634,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 381.47,
     "correct": null,
-    "status": "HOLD (+$0.03)",
+    "status": "\ud83d\udfe1 FLAT (+$0.03)",
     "logged_at": "16:20:00",
     "id": 20,
     "candles_passed": 2
@@ -666,7 +666,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 381.56,
     "correct": null,
-    "status": "HOLD (+$0.05)",
+    "status": "\ud83d\udfe1 HOLD (+$0.05)",
     "logged_at": "16:25:06",
     "id": 21,
     "candles_passed": 2
@@ -698,7 +698,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 381.15,
     "correct": null,
-    "status": "HOLD (-$0.32)",
+    "status": "\ud83d\udfe1 HOLD (-$0.32)",
     "logged_at": "16:30:12",
     "id": 22,
     "candles_passed": 2
@@ -730,7 +730,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 380.83,
     "correct": null,
-    "status": "HOLD (-$0.73)",
+    "status": "\ud83d\udfe1 HOLD (-$0.73)",
     "logged_at": "16:35:18",
     "id": 23,
     "candles_passed": 2
@@ -762,7 +762,7 @@
     "vol_note": "Volume is normal",
     "actual_price": 380.77,
     "correct": true,
-    "status": "WIN (-$0.38)",
+    "status": "\u2705 (-$0.38)",
     "logged_at": "16:40:24",
     "id": 24,
     "candles_passed": 2
@@ -792,12 +792,12 @@
     "bull_expl": "Upside invalidation: $382.56 (+$1.72) if buyers absorb sell pressure.",
     "bear_expl": "Downside momentum target: $378.69 (-$2.14) if support breaks.",
     "vol_note": "Volume is normal",
-    "actual_price": null,
+    "actual_price": 380.98,
     "correct": null,
-    "status": "Pending (10m)",
+    "status": "\ud83d\udfe1 FLAT (+$0.15)",
     "logged_at": "16:45:30",
     "id": 25,
-    "candles_passed": 1
+    "candles_passed": 2
   },
   {
     "timestamp": "2026-11-16 11:45:00",
@@ -826,9 +826,41 @@
     "vol_note": "Volume is normal",
     "actual_price": null,
     "correct": null,
-    "status": "Pending (10m)",
+    "status": "\u23f3 (Waiting 10m)",
     "logged_at": "16:50:36",
     "id": 26,
+    "candles_passed": 1
+  },
+  {
+    "timestamp": "2026-11-16 11:50:00",
+    "ticker": "TSLA",
+    "signal": "DOWN",
+    "confidence": 60.4,
+    "prob_up": 39.6,
+    "price": 380.98,
+    "open": 380.8,
+    "high": 381.07,
+    "low": 380.61,
+    "volume": 4363,
+    "rsi": 45.7,
+    "atr": 1.31,
+    "vol_ratio": 0.65,
+    "macd_hist": 0.0912,
+    "stoch_k": 49.3,
+    "bb_pct": 60.3,
+    "ema_cross": -0.08,
+    "base_target": 379.79,
+    "bull_target": 382.55,
+    "bear_target": 379.01,
+    "base_expl": "Model projects TSLA pulls back -$1.19 over 10m. RSI=46 (neutral zone), MACD accelerating.",
+    "bull_expl": "Upside invalidation: $382.55 (+$1.57) if buyers absorb sell pressure.",
+    "bear_expl": "Downside momentum target: $379.01 (-$1.97) if support breaks.",
+    "vol_note": "Volume is normal",
+    "actual_price": null,
+    "correct": null,
+    "status": "\u23f3 (Waiting 10m)",
+    "logged_at": "16:55:42",
+    "id": 27,
     "candles_passed": 0
   }
 ]
